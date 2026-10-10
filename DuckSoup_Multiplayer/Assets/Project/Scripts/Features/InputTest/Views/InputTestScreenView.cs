@@ -3,10 +3,13 @@ using UnityEngine;
 
 namespace DuckSoup.Features.InputTest.Views
 {
-  
+
     [RequireComponent(typeof(CanvasGroup))]
     public sealed class InputTestScreenView : MonoBehaviour, IInputTestScreen
     {
+        [Header("Tokens")]
+        [SerializeField] private DraggableTokenProbeView[] tokens;
+
         private CanvasGroup canvasGroup;
 
         private void Awake()
@@ -19,12 +22,29 @@ namespace DuckSoup.Features.InputTest.Views
         public void SetInteractionEnabled(bool enabled)
         {
             if (canvasGroup == null)
-            {
                 canvasGroup = GetComponent<CanvasGroup>();
+
+            if (!enabled)
+            {
+                CancelAllDrags();
             }
 
             canvasGroup.interactable = enabled;
             canvasGroup.blocksRaycasts = enabled;
+        }
+
+        private void CancelAllDrags()
+        {
+            if (tokens == null)
+                return;
+
+            foreach (DraggableTokenProbeView token in tokens)
+            {
+                if (token == null)
+                    continue;
+
+                token.CancelActiveDrag();
+            }
         }
     }
 }
