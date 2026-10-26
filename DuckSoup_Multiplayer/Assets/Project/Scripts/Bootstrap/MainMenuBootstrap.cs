@@ -6,15 +6,10 @@ using DuckSoup.Features.Menu.Models;
 using DuckSoup.Features.Menu.Services;
 using DuckSoup.Features.Menu.Views;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace DuckSoup.Bootstrap
 {
-    /// <summary>
-    /// Punto de composición del menú principal.
-    ///
-    /// Construye los servicios, el controlador
-    /// y conecta las vistas de selección.
-    /// </summary>
     public sealed class MainMenuBootstrap : MonoBehaviour
     {
         [Header("Views")]
@@ -30,6 +25,11 @@ namespace DuckSoup.Bootstrap
         [Header("Player")]
         [SerializeField]
         private string fakePlayerName = "ChefDuck01";
+
+        [Header("Single Player Navigation")]
+        [SerializeField]
+        private string singlePlayerSceneName =
+            "SinglePlayerGameplayScene";
 
         [Header("Two Players Settings")]
         [SerializeField]
@@ -57,40 +57,33 @@ namespace DuckSoup.Bootstrap
 
             try
             {
-                // Limpiamos cualquier petición antigua.
                 GameLaunchHandoff.Clear();
 
-                // Servicios.
                 progressStore =
                     new PlayerPrefsProgressStore();
 
                 modeStore =
                     new PlayerPrefsMenuModeStore();
 
-                // Controlador.
                 controller = new MainMenuController(
                     progressStore,
                     modeStore,
                     fakePlayerName);
 
-                // Selector de mesas.
                 tableSelectorView.Initialize(
                     progressStore,
                     HandleTableConfirmed);
 
-                // Selector de patitos.
                 duckSelectionView.Initialize(
                     HandleDucksConfirmed);
 
-                // Vista principal.
                 mainMenuView.Initialize(
                     controller,
                     tableSelectorView,
                     duckSelectionView);
 
                 Debug.Log(
-                    "[MenuBootstrap] Main Menu ready. " +
-                    $"Mode: {controller.SelectedMode}",
+                    "[MenuBootstrap] Main Menu ready.",
                     this);
             }
             catch (Exception exception)
@@ -101,11 +94,22 @@ namespace DuckSoup.Bootstrap
         }
 
         /// <summary>
-        /// Preparación de una partida individual.
+        /// Selección de mesa confirmada
+        /// mediante Hold to Play.
         /// </summary>
         private void HandleTableConfirmed(
             TableDisplayData table)
         {
+            if (!UnityEngine.Application
+                .CanStreamedLevelBeLoaded(singlePlayerSceneName))
+            {
+                mainMenuView.ShowNotice(
+                    "SinglePlayerGameplayScene is " +
+                    "missing from Build Settings.");
+
+                return;
+            }
+
             GameLaunchRequest request =
                 GameLaunchRequest.ForSinglePlayer(
                     table.Id);
@@ -113,19 +117,17 @@ namespace DuckSoup.Bootstrap
             GameLaunchHandoff.Prepare(request);
 
             Debug.Log(
-                "[GameLaunch] Single Player. " +
+                "[MainMenu] Starting Single Player. " +
                 $"Table: {request.TableId}",
                 this);
 
-            // Todavía no navegamos al gameplay antiguo.
-            mainMenuView.ShowNotice(
-                $"TABLE: {table.DisplayName}\n" +
-                "1 PLAYER READY!\n" +
-                "Gameplay connection: next phase.");
+            SceneManager.LoadScene(
+                singlePlayerSceneName);
         }
 
         /// <summary>
-        /// Preparación de una partida de dos jugadores.
+        /// Conservamos el selector de 2P.
+        /// Su gameplay se conectará en fase 4.
         /// </summary>
         private void HandleDucksConfirmed(
             int player1Duck,
@@ -140,18 +142,16 @@ namespace DuckSoup.Bootstrap
             GameLaunchHandoff.Prepare(request);
 
             Debug.Log(
-                "[GameLaunch] Two Players. " +
-                $"P1 Duck: {player1Duck + 1}, " +
-                $"P2 Duck: {player2Duck + 1}",
+                "[MainMenu] 2P ready. " +
+                $"P1: {player1Duck + 1}, " +
+                $"P2: {player2Duck + 1}",
                 this);
 
-            // La escena 2P se conectará cuando
-            // adaptemos sus reglas de gameplay.
             mainMenuView.ShowNotice(
                 "BOTH PLAYERS READY!\n" +
                 $"P1: DUCK {player1Duck + 1}\n" +
                 $"P2: DUCK {player2Duck + 1}\n" +
-                "Gameplay connection: next phase.");
+                "Two-player gameplay comes next.");
         }
     }
 }

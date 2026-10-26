@@ -17,4 +17,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Project/Scenes/RoundGame.unity
     guid: 3ebbbce17fd90b84ea4d4e205cdc2f10
+  - enabled: 1
+    path: Assets/Project/Scenes/SinglePlayerGameplayScene.unity
+    guid: 097660f02910548478430fede21e75aa
   m_configObjects: {}
