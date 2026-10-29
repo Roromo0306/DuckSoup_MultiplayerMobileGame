@@ -1,4 +1,5 @@
 using System;
+using DuckSoup.Features.GameFeel.Menu;
 using DuckSoup.Features.Menu.Contracts;
 using DuckSoup.Features.Menu.Controllers;
 using DuckSoup.Features.Menu.Models;
@@ -18,6 +19,8 @@ namespace DuckSoup.Bootstrap
         [SerializeField] private DuckSelectionView duckSelectionView;
         [Header("Profile")]
         [SerializeField] private string fakePlayerName = "ChefDuck01";
+        [Header("Single Player reward animation (optional)")]
+        [SerializeField] private MainMenuRewardFeel rewardFeel;
         [Header("Scenes")]
         [SerializeField] private string singlePlayerSceneName = "SinglePlayerGameplayScene";
         [SerializeField] private string twoPlayerSceneName = "TwoPlayerGameplayScene";
@@ -45,6 +48,11 @@ namespace DuckSoup.Bootstrap
                 tableSelectorView.Initialize(progressStore, HandleTableConfirmed);
                 duckSelectionView.Initialize(HandleDucksConfirmed);
                 mainMenuView.Initialize(controller, tableSelectorView, duckSelectionView);
+                if (SinglePlayerRewardHandoff.TryConsume(out SinglePlayerRewardHandoff.Reward reward))
+                {
+                    if (rewardFeel != null)
+                        rewardFeel.Play(reward.PreviousTotal, reward.Earned);
+                }
             }
             catch (Exception ex)
             {

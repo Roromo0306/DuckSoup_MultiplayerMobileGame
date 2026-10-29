@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using DuckSoup.Domain;
+using DuckSoup.Features.GameFeel.UI;
 using DuckSoup.Features.Round.Contracts;
 using DuckSoup.Features.Round.Views;
 using DuckSoup.Features.TwoPlayer.Models;
@@ -22,6 +23,10 @@ namespace DuckSoup.Features.TwoPlayer.Views
         [SerializeField] private RecipeCardView recipeCardPrefab;
         [SerializeField] private TwoPlayerTokenView tokenPrefab;
 
+        [Header("Game Feel - optional deal points (left, center, right)")]
+        [SerializeField] private RectTransform[] player1DealOrigins = new RectTransform[3];
+        [SerializeField] private RectTransform[] player2DealOrigins = new RectTransform[3];
+
         private readonly List<RecipeCardView> cards1 = new List<RecipeCardView>();
         private readonly List<RecipeCardView> cards2 = new List<RecipeCardView>();
         private readonly List<TwoPlayerTokenView> tokenViews = new List<TwoPlayerTokenView>();
@@ -39,9 +44,17 @@ namespace DuckSoup.Features.TwoPlayer.Views
             TwoPlayerSnapshot snapshot = session.GetSnapshot();
 
             foreach (RecipeCardSnapshot card in snapshot.Player1Cards)
-                cards1.Add(Instantiate(recipeCardPrefab, player1CardsRoot));
+            {
+                RecipeCardView view = Instantiate(recipeCardPrefab, player1CardsRoot);
+                EnsureCardFeel(view);
+                cards1.Add(view);
+            }
             foreach (RecipeCardSnapshot card in snapshot.Player2Cards)
-                cards2.Add(Instantiate(recipeCardPrefab, player2CardsRoot));
+            {
+                RecipeCardView view = Instantiate(recipeCardPrefab, player2CardsRoot);
+                EnsureCardFeel(view);
+                cards2.Add(view);
+            }
 
             // El Grid organiza los TokenSlot, nunca directamente los tokens.
             for (int i = 0; i < TwoPlayerSession.TokenSlots; i++)
@@ -80,23 +93,38 @@ namespace DuckSoup.Features.TwoPlayer.Views
             return accepted;
         }
 
-        public void FinishTokenGesture(
+        // Devuelve true si el ingrediente se entrego con exito.
+        public bool FinishTokenGesture(
             string tokenId, int pointerId, Vector2 screenPoint,
             Camera eventCamera, bool wasDragged)
         {
-            if (session == null) return;
+            if (session == null) return false;
             bool completed = false;
+            bool accepted = false;
+            RecipeCardView target = null;
             PlayerId completedBy = PlayerId.None;
+
             if (inputEnabled && wasDragged &&
-                TryFindTargetCard(screenPoint, eventCamera, out RecipeCardView target))
+                TryFindTargetCard(screenPoint, eventCamera, out target))
             {
-                session.TryDeliver(tokenId, pointerId, target.Owner, target.CardId, out completed);
+                accepted = session.TryDeliver(
+                    tokenId, pointerId, target.Owner, target.CardId, out completed);
                 if (completed) completedBy = target.Owner;
             }
-            else session.CancelGesture(tokenId, pointerId);
+            else
+            {
+                session.CancelGesture(tokenId, pointerId);
+            }
 
             Refresh();
+            if (target != null)
+            {
+                RecipeCardFeel feel = target.GetComponent<RecipeCardFeel>();
+                if (!accepted) feel?.ShakeWrong();
+                if (completed) feel?.Complete();
+            }
             if (completed) RecipeCompleted?.Invoke(completedBy);
+            return accepted;
         }
 
         public void CancelTokenGesture(string tokenId, int pointerId)
@@ -135,9 +163,24 @@ namespace DuckSoup.Features.TwoPlayer.Views
             {
                 cards1[c].Bind(snap.Player1Cards[c], PlayerId.Player1);
                 cards2[c].Bind(snap.Player2Cards[c], PlayerId.Player2);
+                cards1[c].GetComponent<RecipeCardFeel>()?.ObserveCard(
+                    snap.Player1Cards[c].CardId, DealOrigin(player1DealOrigins, c), c);
+                cards2[c].GetComponent<RecipeCardFeel>()?.ObserveCard(
+                    snap.Player2Cards[c].CardId, DealOrigin(player2DealOrigins, c), c);
             }
             for (int i = 0; i < TwoPlayerSession.TokenSlots; i++)
                 tokenViews[i].Refresh(snap.Tokens[i]);
+        }
+
+        private static void EnsureCardFeel(RecipeCardView card)
+        {
+            if (card.GetComponent<RecipeCardFeel>() == null)
+                card.gameObject.AddComponent<RecipeCardFeel>();
+        }
+
+        private static RectTransform DealOrigin(RectTransform[] origins, int index)
+        {
+            return origins != null && index < origins.Length ? origins[index] : null;
         }
 
         public void CancelAllDrags()
