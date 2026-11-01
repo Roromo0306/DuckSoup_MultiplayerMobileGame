@@ -1,8 +1,10 @@
+
 using System;
 using System.Collections.Generic;
 using DuckSoup.Domain;
-using DuckSoup.Features.GameFeel.UI;
 using DuckSoup.Features.Art;
+using DuckSoup.Features.Audio;
+using DuckSoup.Features.GameFeel.UI;
 using DuckSoup.Features.Round.Contracts;
 using DuckSoup.Features.Round.Views;
 using DuckSoup.Features.TwoPlayer.Models;
@@ -11,71 +13,143 @@ using UnityEngine;
 
 namespace DuckSoup.Features.TwoPlayer.Views
 {
-    /// <summary>Vista del tablero 2P: 6 cartas y 18 posiciones permanentes.</summary>
     public sealed class TwoPlayerBoardView : MonoBehaviour
     {
         [Header("Player Cards")]
-        [SerializeField] private Transform player1CardsRoot;
-        [SerializeField] private Transform player2CardsRoot;
+        [SerializeField]
+        private Transform player1CardsRoot;
+
+        [SerializeField]
+        private Transform player2CardsRoot;
+
         [Header("Shared Table")]
-        [SerializeField] private Transform tokensRoot;
-        [SerializeField] private RectTransform dragLayer;
+        [SerializeField]
+        private Transform tokensRoot;
+
+        [SerializeField]
+        private RectTransform dragLayer;
+
         [Header("Prefabs")]
-        [SerializeField] private RecipeCardView recipeCardPrefab;
-        [SerializeField] private TwoPlayerTokenView tokenPrefab;
+        [SerializeField]
+        private RecipeCardView recipeCardPrefab;
 
-        [Header("Game Feel - optional deal points (left, center, right)")]
-        [SerializeField] private RectTransform[] player1DealOrigins = new RectTransform[3];
-        [SerializeField] private RectTransform[] player2DealOrigins = new RectTransform[3];
+        [SerializeField]
+        private TwoPlayerTokenView tokenPrefab;
 
-        private readonly List<RecipeCardView> cards1 = new List<RecipeCardView>();
-        private readonly List<RecipeCardView> cards2 = new List<RecipeCardView>();
-        private readonly List<TwoPlayerTokenView> tokenViews = new List<TwoPlayerTokenView>();
+        [Header("Game Feel - Deal Origins")]
+        [SerializeField]
+        private RectTransform[] player1DealOrigins =
+            new RectTransform[3];
+
+        [SerializeField]
+        private RectTransform[] player2DealOrigins =
+            new RectTransform[3];
+
+        private readonly List<RecipeCardView> cards1 =
+            new List<RecipeCardView>();
+
+        private readonly List<RecipeCardView> cards2 =
+            new List<RecipeCardView>();
+
+        private readonly List<TwoPlayerTokenView> tokenViews =
+            new List<TwoPlayerTokenView>();
+
         private TwoPlayerSession session;
+
         private bool inputEnabled;
         private bool initialized;
 
         public event Action<PlayerId> RecipeCompleted;
 
-        public void Initialize(TwoPlayerSession newSession)
+        public void Initialize(
+            TwoPlayerSession newSession)
         {
-            if (initialized) throw new InvalidOperationException("El tablero ya esta inicializado.");
-            session = newSession ?? throw new ArgumentNullException(nameof(newSession));
-            ValidateReferences();
-            TwoPlayerSnapshot snapshot = session.GetSnapshot();
-
-            foreach (RecipeCardSnapshot card in snapshot.Player1Cards)
+            if (initialized)
             {
-                RecipeCardView view = Instantiate(recipeCardPrefab, player1CardsRoot);
+                throw new InvalidOperationException(
+                    "El tablero ya esta inicializado.");
+            }
+
+            session = newSession ??
+                throw new ArgumentNullException(
+                    nameof(newSession));
+
+            ValidateReferences();
+
+            TwoPlayerSnapshot snapshot =
+                session.GetSnapshot();
+
+            // Crear las cartas del jugador 1.
+            foreach (RecipeCardSnapshot card
+                     in snapshot.Player1Cards)
+            {
+                RecipeCardView view =
+                    Instantiate(
+                        recipeCardPrefab,
+                        player1CardsRoot);
+
                 EnsureCardFeel(view);
+
                 cards1.Add(view);
             }
-            foreach (RecipeCardSnapshot card in snapshot.Player2Cards)
+
+            // Crear las cartas del jugador 2.
+            foreach (RecipeCardSnapshot card
+                     in snapshot.Player2Cards)
             {
-                RecipeCardView view = Instantiate(recipeCardPrefab, player2CardsRoot);
+                RecipeCardView view =
+                    Instantiate(
+                        recipeCardPrefab,
+                        player2CardsRoot);
+
                 EnsureCardFeel(view);
+
                 cards2.Add(view);
             }
 
-            // El Grid organiza los TokenSlot, nunca directamente los tokens.
-            for (int i = 0; i < TwoPlayerSession.TokenSlots; i++)
+            // Cada token tiene su propio hueco.
+            // El Grid organiza los slots, no
+            // directamente los tokens arrastrables.
+            for (int i = 0;
+                 i < TwoPlayerSession.TokenSlots;
+                 i++)
             {
-                var slot = new GameObject($"TokenSlot_{i:00}", typeof(RectTransform));
-                RectTransform slotRect = slot.GetComponent<RectTransform>();
-                slotRect.SetParent(tokensRoot, false);
+                GameObject slot = new GameObject(
+                    $"TokenSlot_{i:00}",
+                    typeof(RectTransform));
 
-                TwoPlayerTokenView token = Instantiate(tokenPrefab, slotRect);
-                RectTransform tokenRect = token.GetComponent<RectTransform>();
+                RectTransform slotRect =
+                    slot.GetComponent<RectTransform>();
+
+                slotRect.SetParent(
+                    tokensRoot,
+                    false);
+
+                TwoPlayerTokenView token =
+                    Instantiate(
+                        tokenPrefab,
+                        slotRect);
+
+                RectTransform tokenRect =
+                    token.GetComponent<RectTransform>();
+
                 tokenRect.anchorMin = Vector2.zero;
                 tokenRect.anchorMax = Vector2.one;
+
                 tokenRect.offsetMin = Vector2.zero;
                 tokenRect.offsetMax = Vector2.zero;
+
                 tokenRect.localScale = Vector3.one;
-                token.Initialize(this, dragLayer);
+
+                token.Initialize(
+                    this,
+                    dragLayer);
+
                 tokenViews.Add(token);
             }
 
             initialized = true;
+
             Refresh();
             SetInputEnabled(false);
         }
@@ -83,124 +157,245 @@ namespace DuckSoup.Features.TwoPlayer.Views
         public void SetInputEnabled(bool enabled)
         {
             inputEnabled = enabled;
-            if (!enabled) CancelAllDrags();
+
+            if (!enabled)
+                CancelAllDrags();
         }
 
-        public bool TryBeginToken(string tokenId, int pointerId)
+        public bool TryBeginToken(
+            string tokenId,
+            int pointerId)
         {
-            if (!inputEnabled || session == null) return false;
-            bool accepted = session.TryBeginGesture(tokenId, pointerId);
-            if (accepted) Refresh();
+            if (!inputEnabled || session == null)
+                return false;
+
+            bool accepted =
+                session.TryBeginGesture(
+                    tokenId,
+                    pointerId);
+
+            if (accepted)
+            {
+                Refresh();
+
+                DuckSoupSoundPlayer.Play(
+                    DuckSoupSoundId.IngredientTap);
+            }
+
             return accepted;
         }
 
-        // Devuelve true si el ingrediente se entrego con exito.
         public bool FinishTokenGesture(
-            string tokenId, int pointerId, Vector2 screenPoint,
-            Camera eventCamera, bool wasDragged)
+            string tokenId,
+            int pointerId,
+            Vector2 screenPoint,
+            Camera eventCamera,
+            bool wasDragged)
         {
-            if (session == null) return false;
+            if (session == null)
+                return false;
+
             bool completed = false;
             bool accepted = false;
+
             RecipeCardView target = null;
             PlayerId completedBy = PlayerId.None;
 
-            if (inputEnabled && wasDragged &&
-                TryFindTargetCard(screenPoint, eventCamera, out target))
+            if (inputEnabled &&
+                wasDragged &&
+                TryFindTargetCard(
+                    screenPoint,
+                    eventCamera,
+                    out target))
             {
                 accepted = session.TryDeliver(
-                    tokenId, pointerId, target.Owner, target.CardId, out completed);
-                if (completed) completedBy = target.Owner;
+                    tokenId,
+                    pointerId,
+                    target.Owner,
+                    target.CardId,
+                    out completed);
+
+                if (completed)
+                    completedBy = target.Owner;
             }
             else
             {
-                session.CancelGesture(tokenId, pointerId);
+                session.CancelGesture(
+                    tokenId,
+                    pointerId);
             }
 
             Refresh();
+
             if (target != null)
             {
-                RecipeCardFeel feel = target.GetComponent<RecipeCardFeel>();
-                if (!accepted) feel?.ShakeWrong();
-                if (completed) feel?.Complete();
+                RecipeCardFeel feel =
+                    target.GetComponent<RecipeCardFeel>();
+
+                if (!accepted)
+                    feel?.ShakeWrong();
+
+                if (completed)
+                    feel?.Complete();
+
+                DuckSoupSoundPlayer.Play(
+                    accepted
+                        ? DuckSoupSoundId.CorrectIngredient
+                        : DuckSoupSoundId.IncorrectIngredient);
             }
-            if (completed) RecipeCompleted?.Invoke(completedBy);
+
+            if (completed)
+            {
+                DuckSoupSoundPlayer.Play(
+                    DuckSoupSoundId.RecipeCompleted);
+
+                RecipeCompleted?.Invoke(completedBy);
+            }
+
             return accepted;
         }
 
-        public void CancelTokenGesture(string tokenId, int pointerId)
+        public void CancelTokenGesture(
+            string tokenId,
+            int pointerId)
         {
-            session?.CancelGesture(tokenId, pointerId);
+            session?.CancelGesture(
+                tokenId,
+                pointerId);
         }
 
         private bool TryFindTargetCard(
-            Vector2 screenPoint, Camera camera, out RecipeCardView target)
+            Vector2 screenPoint,
+            Camera eventCamera,
+            out RecipeCardView target)
         {
             foreach (RecipeCardView card in cards1)
             {
-                if (card.ContainsScreenPoint(screenPoint, camera))
+                if (card.ContainsScreenPoint(
+                    screenPoint,
+                    eventCamera))
                 {
                     target = card;
                     return true;
                 }
             }
+
             foreach (RecipeCardView card in cards2)
             {
-                if (card.ContainsScreenPoint(screenPoint, camera))
+                if (card.ContainsScreenPoint(
+                    screenPoint,
+                    eventCamera))
                 {
                     target = card;
                     return true;
                 }
             }
+
             target = null;
             return false;
         }
 
         public void Refresh()
         {
-            if (!initialized) return;
-            TwoPlayerSnapshot snap = session.GetSnapshot();
-            for (int c = 0; c < TwoPlayerSession.CardsPerPlayer; c++)
+            if (!initialized)
+                return;
+
+            TwoPlayerSnapshot snapshot =
+                session.GetSnapshot();
+
+            for (int i = 0;
+                 i < TwoPlayerSession.CardsPerPlayer;
+                 i++)
             {
-                cards1[c].Bind(snap.Player1Cards[c], PlayerId.Player1);
-                cards2[c].Bind(snap.Player2Cards[c], PlayerId.Player2);
-                cards1[c].GetComponent<RecipeCardArtView>()?.Render(snap.Player1Cards[c]);
-                cards2[c].GetComponent<RecipeCardArtView>()?.Render(snap.Player2Cards[c]);
-                cards1[c].GetComponent<RecipeCardFeel>()?.ObserveCard(
-                    snap.Player1Cards[c].CardId, DealOrigin(player1DealOrigins, c), c);
-                cards2[c].GetComponent<RecipeCardFeel>()?.ObserveCard(
-                    snap.Player2Cards[c].CardId, DealOrigin(player2DealOrigins, c), c);
+                RecipeCardView card1 = cards1[i];
+                RecipeCardView card2 = cards2[i];
+
+                card1.Bind(
+                    snapshot.Player1Cards[i],
+                    PlayerId.Player1);
+
+                card2.Bind(
+                    snapshot.Player2Cards[i],
+                    PlayerId.Player2);
+
+                card1.GetComponent<RecipeCardArtView>()
+                    ?.Render(snapshot.Player1Cards[i]);
+
+                card2.GetComponent<RecipeCardArtView>()
+                    ?.Render(snapshot.Player2Cards[i]);
+
+                card1.GetComponent<RecipeCardFeel>()
+                    ?.ObserveCard(
+                        snapshot.Player1Cards[i].CardId,
+                        DealOrigin(player1DealOrigins, i),
+                        i);
+
+                card2.GetComponent<RecipeCardFeel>()
+                    ?.ObserveCard(
+                        snapshot.Player2Cards[i].CardId,
+                        DealOrigin(player2DealOrigins, i),
+                        i);
             }
-            for (int i = 0; i < TwoPlayerSession.TokenSlots; i++)
-                tokenViews[i].Refresh(snap.Tokens[i]);
+
+            for (int i = 0;
+                 i < TwoPlayerSession.TokenSlots;
+                 i++)
+            {
+                tokenViews[i].Refresh(
+                    snapshot.Tokens[i]);
+            }
         }
 
-        private static void EnsureCardFeel(RecipeCardView card)
+        private static void EnsureCardFeel(
+            RecipeCardView card)
         {
             if (card.GetComponent<RecipeCardFeel>() == null)
-                card.gameObject.AddComponent<RecipeCardFeel>();
+            {
+                card.gameObject
+                    .AddComponent<RecipeCardFeel>();
+            }
         }
 
-        private static RectTransform DealOrigin(RectTransform[] origins, int index)
+        private static RectTransform DealOrigin(
+            RectTransform[] origins,
+            int index)
         {
-            return origins != null && index < origins.Length ? origins[index] : null;
+            return origins != null &&
+                   index < origins.Length
+                ? origins[index]
+                : null;
         }
 
         public void CancelAllDrags()
         {
-            foreach (TwoPlayerTokenView token in tokenViews)
-                if (token != null) token.ForceCancel();
+            foreach (TwoPlayerTokenView token
+                     in tokenViews)
+            {
+                if (token != null)
+                    token.ForceCancel();
+            }
+
             session?.CancelAllGestures();
         }
 
         private void ValidateReferences()
         {
-            if (player1CardsRoot == null || player2CardsRoot == null ||
-                tokensRoot == null || dragLayer == null ||
-                recipeCardPrefab == null || tokenPrefab == null)
-                throw new InvalidOperationException("Faltan referencias en TwoPlayerBoardView.");
+            if (player1CardsRoot == null ||
+                player2CardsRoot == null ||
+                tokensRoot == null ||
+                dragLayer == null ||
+                recipeCardPrefab == null ||
+                tokenPrefab == null)
+            {
+                throw new InvalidOperationException(
+                    "[TwoPlayerBoard] " +
+                    "Faltan referencias en el Inspector.");
+            }
         }
 
-        private void OnDisable() => CancelAllDrags();
+        private void OnDisable()
+        {
+            CancelAllDrags();
+        }
     }
 }

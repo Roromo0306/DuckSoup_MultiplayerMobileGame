@@ -22,3 +22,11 @@ MonoBehaviour:
   pumpkin: {fileID: 21300000, guid: de16057d43327454885c6183d832642a, type: 3}
   corn: {fileID: 21300000, guid: 9c09ba3f72443714a89d6d2749c8166c, type: 3}
   leek: {fileID: 21300000, guid: a1eb7512c0b4c8d498d8522770b7ecf3, type: 3}
+  recipeCarrot: {fileID: 21300000, guid: f67c6bcdc40dda846b29894db60885f5, type: 3}
+  recipePotato: {fileID: 21300000, guid: d07e71af952bb5b4d98d793af0879fd2, type: 3}
+  recipeOnion: {fileID: 21300000, guid: 32dc6b207507d004080620b8c820d5e3, type: 3}
+  recipeMushroom: {fileID: 21300000, guid: 42a6f4ce8530b024bafd9b43e3d30263, type: 3}
+  recipeTomato: {fileID: 21300000, guid: d03fd88b7065dde4bb2fa76733c872bc, type: 3}
+  recipePumpkin: {fileID: 21300000, guid: ac6280541cfc6c5408002127c998088f, type: 3}
+  recipeCorn: {fileID: 21300000, guid: 9bea7e26793eef842abda22cf21e03db, type: 3}
+  recipeLeek: {fileID: 21300000, guid: 5c749541066955b43abdf318420efab4, type: 3}

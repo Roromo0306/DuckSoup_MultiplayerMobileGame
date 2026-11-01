@@ -379,8 +379,8 @@ AudioSource:
   m_GameObject: {fileID: 282399379}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: ecb56dffcfe194c4a877495d34f4b379, type: 3}
+  OutputAudioMixerGroup: {fileID: -5831786013847558220, guid: a5b39d7c5d623514a84a076c9f10ad37, type: 2}
+  m_audioClip: {fileID: 8300000, guid: 50ab5eeace2877b4da20b83e6e741013, type: 3}
   m_PlayOnAwake: 1
   m_Volume: 0.656
   m_Pitch: 1
@@ -1899,6 +1899,63 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: -471.00006}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1001 &1322602523
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 7813443883594914837, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 341.5037
+      objectReference: {fileID: 0}
+    - target: {fileID: 7813443883594914837, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1456.9373
+      objectReference: {fileID: 0}
+    - target: {fileID: 7813443883594914837, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -5.7736645
+      objectReference: {fileID: 0}
+    - target: {fileID: 7813443883594914837, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7813443883594914837, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7813443883594914837, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7813443883594914837, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7813443883594914837, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7813443883594914837, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7813443883594914837, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8490120710803466751, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: m_Name
+      value: GameAudio
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ec514583de790214d8478939d2d2d82d, type: 3}
 --- !u!1 &1374343274
 GameObject:
   m_ObjectHideFlags: 0
@@ -1965,8 +2022,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   board: {fileID: 214141251}
   timerText: {fileID: 2100664201}
-  scoreText: {fileID: 0}
   overlayText: {fileID: 2117154813}
+  scoreText: {fileID: 0}
+  player1ScoreText: {fileID: 1678898656}
+  scoreSeparator: {fileID: 1491624640}
+  player2ScoreText: {fileID: 1855115391}
   player1ScoreNumber: {fileID: 1678898658}
   player2ScoreNumber: {fileID: 1855115393}
   timerMusic: {fileID: 282399380}
@@ -2207,6 +2267,7 @@ GameObject:
   - component: {fileID: 1577888483}
   - component: {fileID: 1577888485}
   - component: {fileID: 1577888484}
+  - component: {fileID: 1577888486}
   m_Layer: 5
   m_Name: TwoPlayerResultPanel
   m_TagString: Untagged
@@ -2275,6 +2336,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1577888482}
   m_CullTransparentMesh: 1
+--- !u!114 &1577888486
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1577888482}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e66650035ac6d14895574ceb6b450bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  player1StatusText: {fileID: 56075794}
+  player2StatusText: {fileID: 1995001738}
+  confettiSoundDelay: 0.15
 --- !u!1 &1607319827
 GameObject:
   m_ObjectHideFlags: 0
@@ -3158,7 +3234,7 @@ MonoBehaviour:
   gameDurationSeconds: 60
   ingredientRevealSeconds: 3
   tokenRefillSeconds: 1.2
-  recipeReplacementSeconds: 0.8
+  recipeReplacementSeconds: 1.5
   timeUpMessageSeconds: 1.5
   randomSeed: 2026
   mainMenuSceneName: MainMenuScene
@@ -3742,6 +3818,7 @@ GameObject:
   - component: {fileID: 2117154814}
   - component: {fileID: 2117154813}
   - component: {fileID: 2117154815}
+  - component: {fileID: 2117154816}
   m_Layer: 5
   m_Name: CountdownText
   m_TagString: Untagged
@@ -3881,6 +3958,20 @@ MonoBehaviour:
   amplitude: 16
   duration: 0.5
   cycles: 8
+--- !u!114 &2117154816
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2117154811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a0d9e3bb5d8fae4fba82511f7fd951e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  overlayText: {fileID: 2117154813}
+  useRecordedCountdown: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -3893,3 +3984,4 @@ SceneRoots:
   - {fileID: 1042684420}
   - {fileID: 1858413508}
   - {fileID: 282399382}
+  - {fileID: 1322602523}

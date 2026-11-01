@@ -883,9 +883,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   visualRoot: {fileID: 5334569652636368367}
   canvasGroup: {fileID: 7852200223903798311}
-  completeSeconds: 0.32
-  dealSeconds: 0.38
-  liftDistance: 45
+  completeSeconds: 1.05
+  dealSeconds: 0.65
+  liftDistance: 55
   fallbackSideDistance: 160
   fallbackCenterHeight: 125
 --- !u!114 &5527055628976690193
@@ -911,6 +911,10 @@ MonoBehaviour:
   - {fileID: 7206294991656062869}
   - {fileID: 2369789369337868333}
   - {fileID: 7132693137507249571}
+  arrangeIconsAutomatically: 1
+  iconWidthFraction: 0.78
+  iconHeightFraction: 0.27
+  checkWidthFraction: 0.18
   hideLegacyTexts: 1
 --- !u!1 &7881949619074044620
 GameObject:
