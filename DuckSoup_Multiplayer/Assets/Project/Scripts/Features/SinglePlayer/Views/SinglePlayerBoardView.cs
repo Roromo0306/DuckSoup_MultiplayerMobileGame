@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DuckSoup.Domain;
 using DuckSoup.Features.GameFeel.UI;
+using DuckSoup.Features.Art;
 using DuckSoup.Features.Round.Views;
 using DuckSoup.Features.SinglePlayer.Models;
 using DuckSoup.Features.SinglePlayer.Services;
@@ -127,6 +128,7 @@ namespace DuckSoup.Features.SinglePlayer.Views
             for (int i = 0; i < cardViews.Count; i++)
             {
                 cardViews[i].Bind(snap.Cards[i], PlayerId.Player1);
+                cardViews[i].GetComponent<RecipeCardArtView>()?.Render(snap.Cards[i]);
                 RectTransform origin = dealOrigins != null && i < dealOrigins.Length
                     ? dealOrigins[i] : null;
                 cardViews[i].GetComponent<RecipeCardFeel>()?.ObserveCard(

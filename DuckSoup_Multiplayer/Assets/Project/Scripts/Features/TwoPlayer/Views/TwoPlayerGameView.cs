@@ -32,6 +32,16 @@ namespace DuckSoup.Features.TwoPlayer.Views
                 (scoreText == null && (player1ScoreNumber == null || player2ScoreNumber == null)))
                 throw new InvalidOperationException("Asigna Timer, Overlay y marcadores en TwoPlayerGameView.");
             overlayText.gameObject.SetActive(false);
+            // Si hay dos contadores individuales, no mostrar el ScoreText legado.
+            bool splitScore = player1ScoreNumber != null && player2ScoreNumber != null;
+            if (scoreText != null && splitScore)
+            {
+                // No desactivamos un ScoreNumber por error si comparte referencia.
+                bool isSeparator = scoreText.text.Trim() == "-" || scoreText.text.Trim() == "–";
+                if (!isSeparator && scoreText.gameObject != player1ScoreNumber.gameObject &&
+                    scoreText.gameObject != player2ScoreNumber.gameObject)
+                    scoreText.gameObject.SetActive(false);
+            }
             RefreshHud(session.RemainingSeconds, session.Player1Score, session.Player2Score);
         }
 
@@ -60,7 +70,9 @@ namespace DuckSoup.Features.TwoPlayer.Views
         {
             int total = Mathf.CeilToInt(Mathf.Max(0f, seconds));
             timerText.text = $"{total / 60:00}:{total % 60:00}";
-            if (scoreText != null) scoreText.text = $"{player1Score} - {player2Score}";
+            // Nunca escribir un marcador adicional si existen los dos numeros separados.
+            if (scoreText != null && (player1ScoreNumber == null || player2ScoreNumber == null))
+                scoreText.text = $"{player1Score} - {player2Score}";
             if (player1ScoreNumber != null) player1ScoreNumber.Show(player1Score);
             if (player2ScoreNumber != null) player2ScoreNumber.Show(player2Score);
             if (timerMusic != null) timerMusic.RenderRemaining(seconds);

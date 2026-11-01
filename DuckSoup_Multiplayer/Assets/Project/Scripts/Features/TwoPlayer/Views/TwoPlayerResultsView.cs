@@ -1,5 +1,6 @@
 using System;
 using DuckSoup.Features.Menu.Models;
+using DuckSoup.Features.GameFeel.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -28,6 +29,14 @@ namespace DuckSoup.Features.TwoPlayer.Views
         [Header("Next")]
         [SerializeField] private Button nextButton;
         [SerializeField, Min(0.1f)] private float nextDelaySeconds = 2f;
+
+        [Header("Winner / Loser Game Feel (optional)")]
+        [SerializeField] private ResultStatusFeel player1StatusFeel;
+        [SerializeField] private ResultStatusFeel player2StatusFeel;
+        [SerializeField] private UIConfettiEmitter confetti;
+        [Header("Optional native ParticleSystems: use Screen Space - Camera for visibility")]
+        [SerializeField] private ParticleSystem leftNativeConfetti;
+        [SerializeField] private ParticleSystem rightNativeConfetti;
 
         public event Action NextRequested;
 
@@ -67,6 +76,18 @@ namespace DuckSoup.Features.TwoPlayer.Views
             nextButton.interactable = false;
             nextButton.gameObject.SetActive(false);
             resultsPanel.SetActive(true);
+            if (player1StatusFeel != null)
+                player1StatusFeel.Play(draw ? ResultStatusFeel.Status.Draw :
+                    player1Wins ? ResultStatusFeel.Status.Winner : ResultStatusFeel.Status.Loser);
+            if (player2StatusFeel != null)
+                player2StatusFeel.Play(draw ? ResultStatusFeel.Status.Draw :
+                    player1Wins ? ResultStatusFeel.Status.Loser : ResultStatusFeel.Status.Winner);
+            if (!draw)
+            {
+                confetti?.Burst();
+                if (leftNativeConfetti != null) leftNativeConfetti.Play();
+                if (rightNativeConfetti != null) rightNativeConfetti.Play();
+            }
         }
 
         private void SetDuck(Image image, int index)
@@ -108,6 +129,13 @@ namespace DuckSoup.Features.TwoPlayer.Views
         {
             showing = false;
             nextUnlocked = false;
+            player1StatusFeel?.StopNow();
+            player2StatusFeel?.StopNow();
+            confetti?.StopAndClear();
+            if (leftNativeConfetti != null)
+                leftNativeConfetti.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            if (rightNativeConfetti != null)
+                rightNativeConfetti.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             if (resultsPanel != null) resultsPanel.SetActive(false);
         }
 

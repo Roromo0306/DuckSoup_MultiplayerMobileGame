@@ -1,5 +1,6 @@
 using System;
 using DuckSoup.Features.GameFeel.UI;
+using DuckSoup.Features.Art;
 using DuckSoup.Features.Round.Contracts;
 using DuckSoup.Features.Round.Models;
 using TMPro;
@@ -20,6 +21,7 @@ namespace DuckSoup.Features.SinglePlayer.Views
         private RectTransform tokenRect;
         private Image backgroundImage;
         private TokenMotionFeel motion;
+        private TokenArtView art;
         private Transform originalParent;
         private int originalSiblingIndex;
         private Vector3 originalWorldPosition;
@@ -36,6 +38,9 @@ namespace DuckSoup.Features.SinglePlayer.Views
         {
             tokenRect = GetComponent<RectTransform>();
             backgroundImage = GetComponent<Image>();
+            art = GetComponent<TokenArtView>();
+            if (art != null && art.IsConfigured && ingredientText != null)
+                ingredientText.gameObject.SetActive(false);
             motion = GetComponent<TokenMotionFeel>();
             if (motion == null) motion = gameObject.AddComponent<TokenMotionFeel>();
         }
@@ -44,8 +49,8 @@ namespace DuckSoup.Features.SinglePlayer.Views
         {
             board = boardView ?? throw new ArgumentNullException(nameof(boardView));
             dragLayer = layer ?? throw new ArgumentNullException(nameof(layer));
-            if (ingredientText == null)
-                throw new InvalidOperationException("Asigna IngredientText en SinglePlayerToken.");
+            if (ingredientText == null && (art == null || !art.IsConfigured))
+                throw new InvalidOperationException("Asigna IngredientText o TokenArtView.");
         }
 
         public void Refresh(IngredientTokenSnapshot snapshot)
@@ -55,7 +60,8 @@ namespace DuckSoup.Features.SinglePlayer.Views
                 TokenId = null;
                 backgroundImage.enabled = false;
                 backgroundImage.raycastTarget = false;
-                ingredientText.text = "";
+                SetLabel("");
+                art?.Render(snapshot);
                 return;
             }
             TokenId = snapshot.Id;
@@ -63,14 +69,20 @@ namespace DuckSoup.Features.SinglePlayer.Views
             backgroundImage.raycastTarget = !snapshot.IsConsumed && !isReturning;
             if (snapshot.IsRevealed)
             {
-                ingredientText.text = GetIngredientLabel(snapshot.VisibleIngredient);
+                SetLabel(GetIngredientLabel(snapshot.VisibleIngredient));
                 backgroundImage.color = new Color(0.95f, 0.72f, 0.35f);
             }
             else
             {
-                ingredientText.text = "?";
+                SetLabel("?");
                 backgroundImage.color = new Color(0.60f, 0.37f, 0.19f);
             }
+            art?.Render(snapshot);
+        }
+
+        private void SetLabel(string value)
+        {
+            if (ingredientText != null) ingredientText.text = value;
         }
 
         public void OnPointerDown(PointerEventData eventData)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DuckSoup.Core.Randomization;
 using DuckSoup.Domain;
+using DuckSoup.Features.Procedural;
 using DuckSoup.Features.Round.Contracts;
 using DuckSoup.Features.Round.Models;
 using DuckSoup.Features.TwoPlayer.Models;
@@ -17,10 +18,9 @@ namespace DuckSoup.Features.TwoPlayer.Services
         public const int CardsPerPlayer = 3;
         public const int TokenSlots = 18;
 
-        private readonly List<RecipeDefinition> catalog = new List<RecipeDefinition>();
         private readonly IRandomSource random;
+        private readonly AvailableRecipeGenerator generator;
         private readonly RecipeCardModel[,] cards = new RecipeCardModel[2, CardsPerPlayer];
-        private readonly RecipeDefinition[,] upcoming = new RecipeDefinition[2, CardsPerPlayer];
         private readonly float[,] recipeTimers = new float[2, CardsPerPlayer];
         private readonly IngredientToken[] tokens = new IngredientToken[TokenSlots];
         private readonly float[] hideTimers = new float[TokenSlots];
@@ -50,6 +50,7 @@ namespace DuckSoup.Features.TwoPlayer.Services
         {
             if (definitions == null) throw new ArgumentNullException(nameof(definitions));
             random = randomSource ?? throw new ArgumentNullException(nameof(randomSource));
+            generator = new AvailableRecipeGenerator(random);
             CheckPositiveFinite(durationSeconds, nameof(durationSeconds));
             CheckPositiveFinite(revealDurationSeconds, nameof(revealDurationSeconds));
             CheckPositiveFinite(tokenRefillSeconds, nameof(tokenRefillSeconds));
@@ -60,19 +61,8 @@ namespace DuckSoup.Features.TwoPlayer.Services
             refillSeconds = tokenRefillSeconds;
             recipeSeconds = recipeReplacementSeconds;
 
-            var ids = new HashSet<string>(StringComparer.Ordinal);
-            foreach (RecipeDefinition recipe in definitions)
-            {
-                if (recipe == null || !ids.Add(recipe.Id))
-                    throw new ArgumentException("El catalogo tiene recetas nulas o duplicadas.");
-                if (recipe.RequiredIngredients.Count != 3)
-                    throw new ArgumentException("El prototipo 2P necesita recetas de tres ingredientes.");
-                catalog.Add(recipe);
-            }
-
-            // Tres recetas visibles y tres futuras distintas por jugador.
-            if (catalog.Count < CardsPerPlayer * 2)
-                throw new ArgumentException("Se necesitan al menos seis recetas distintas.");
+            // El parametro definitions permanece por compatibilidad con el Bootstrap.
+            // Las recetas se generan ahora desde las 8 clases de ingrediente disponibles.
 
             for (int i = 0; i < TokenSlots; i++)
             {
@@ -102,72 +92,41 @@ namespace DuckSoup.Features.TwoPlayer.Services
 
         private void CreateInitialBoard()
         {
-            var needed = new List<IngredientType>(TokenSlots);
-            for (int p = 0; p < 2; p++)
-            {
-                var choices = new List<RecipeDefinition>(catalog);
-                for (int c = 0; c < CardsPerPlayer; c++)
-                {
-                    int j = random.NextInt(c, choices.Count);
-                    RecipeDefinition temp = choices[c];
-                    choices[c] = choices[j];
-                    choices[j] = temp;
-
-                    cards[p, c] = NewCard(p, choices[c]);
-                    needed.AddRange(cards[p, c].Definition.RequiredIngredients);
-                }
-            }
-
-            Shuffle(needed);
+            List<IngredientType> stock = generator.InitialStock(TokenSlots);
             for (int i = 0; i < TokenSlots; i++)
-                tokens[i] = NewToken(needed[i]);
-
+                tokens[i] = NewToken(stock[i]);
             for (int p = 0; p < 2; p++)
                 for (int c = 0; c < CardsPerPlayer; c++)
-                    upcoming[p, c] = ChooseUpcoming(p);
+                    cards[p, c] = NewCard(p);
         }
 
-        private void Shuffle<T>(List<T> list)
-        {
-            for (int i = list.Count - 1; i > 0; i--)
-            {
-                int j = random.NextInt(0, i + 1);
-                T temp = list[i];
-                list[i] = list[j];
-                list[j] = temp;
-            }
-        }
-
-        private RecipeCardModel NewCard(int playerIndex, RecipeDefinition definition)
+        private RecipeCardModel NewCard(int playerIndex)
         {
             cardSerial++;
-            return new RecipeCardModel($"p{playerIndex + 1}_card_{cardSerial:0000}", definition);
+            RecipeDefinition recipe = generator.Generate(GetStockIncludingPending(), AllCards());
+            return new RecipeCardModel($"p{playerIndex + 1}_card_{cardSerial:000000}", recipe);
+        }
+
+        private IEnumerable<RecipeCardModel> AllCards()
+        {
+            for (int p = 0; p < 2; p++)
+                for (int c = 0; c < CardsPerPlayer; c++)
+                    if (cards[p, c] != null) yield return cards[p, c];
+        }
+
+        private IEnumerable<IngredientType> GetStockIncludingPending()
+        {
+            for (int i = 0; i < TokenSlots; i++)
+            {
+                if (tokens[i] != null) yield return tokens[i].Ingredient;
+                else if (refillTimers[i] >= 0f) yield return pendingIngredients[i];
+            }
         }
 
         private IngredientToken NewToken(IngredientType ingredient)
         {
             tokenSerial++;
-            return new IngredientToken($"p2_token_{tokenSerial:0000}", ingredient);
-        }
-
-        private RecipeDefinition ChooseUpcoming(int playerIndex)
-        {
-            var used = new HashSet<string>(StringComparer.Ordinal);
-            for (int c = 0; c < CardsPerPlayer; c++)
-            {
-                used.Add(cards[playerIndex, c].Definition.Id);
-                if (upcoming[playerIndex, c] != null)
-                    used.Add(upcoming[playerIndex, c].Id);
-            }
-
-            var choices = new List<RecipeDefinition>();
-            foreach (RecipeDefinition definition in catalog)
-                if (!used.Contains(definition.Id)) choices.Add(definition);
-
-            if (choices.Count == 0)
-                throw new InvalidOperationException("No quedan recetas para reponer.");
-
-            return choices[random.NextInt(0, choices.Count)];
+            return new IngredientToken($"p2_token_{tokenSerial:000000}", ingredient);
         }
 
         public bool TryBeginGesture(string tokenId, int pointerId)
@@ -208,21 +167,13 @@ namespace DuckSoup.Features.TwoPlayer.Services
                 if (token.IsConsumed || !token.IsRevealed ||
                     !card.Progress.NeedsIngredient(token.Ingredient)) return false;
 
-                // La proxima receta ya esta determinada: cada entrega financia
-                // uno de sus tres ingredientes futuros.
-                int nextIngredientIndex = card.Progress.CompletedIngredientCount;
-                RecipeDefinition nextRecipe = upcoming[p, c];
-                if (nextRecipe == null || nextIngredientIndex >= 3)
-                    throw new InvalidOperationException("Falta una receta futura valida.");
-                IngredientType replacement = nextRecipe.RequiredIngredients[nextIngredientIndex];
-
                 if (!token.TryConsume()) return false;
                 if (!card.Progress.TryAddIngredient(token.Ingredient))
                     throw new InvalidOperationException("Progreso inconsistente tras consumir token.");
 
                 tokens[t] = null;
                 hideTimers[t] = -1f;
-                pendingIngredients[t] = replacement;
+                pendingIngredients[t] = generator.RandomIngredient();
                 refillTimers[t] = refillSeconds;
 
                 if (card.IsComplete)
@@ -337,11 +288,7 @@ namespace DuckSoup.Features.TwoPlayer.Services
                     recipeTimers[p, c] -= deltaTime;
                     if (recipeTimers[p, c] > 0f) continue;
 
-                    RecipeDefinition next = upcoming[p, c];
-                    if (next == null) throw new InvalidOperationException("No hay receta preparada.");
-                    cards[p, c] = NewCard(p, next);
-                    upcoming[p, c] = null;
-                    upcoming[p, c] = ChooseUpcoming(p);
+                    cards[p, c] = NewCard(p);
                     recipeTimers[p, c] = -1f;
                     changed = true;
                 }

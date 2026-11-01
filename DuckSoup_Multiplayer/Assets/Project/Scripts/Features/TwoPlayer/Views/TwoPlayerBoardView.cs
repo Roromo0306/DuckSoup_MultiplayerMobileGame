@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DuckSoup.Domain;
 using DuckSoup.Features.GameFeel.UI;
+using DuckSoup.Features.Art;
 using DuckSoup.Features.Round.Contracts;
 using DuckSoup.Features.Round.Views;
 using DuckSoup.Features.TwoPlayer.Models;
@@ -163,6 +164,8 @@ namespace DuckSoup.Features.TwoPlayer.Views
             {
                 cards1[c].Bind(snap.Player1Cards[c], PlayerId.Player1);
                 cards2[c].Bind(snap.Player2Cards[c], PlayerId.Player2);
+                cards1[c].GetComponent<RecipeCardArtView>()?.Render(snap.Player1Cards[c]);
+                cards2[c].GetComponent<RecipeCardArtView>()?.Render(snap.Player2Cards[c]);
                 cards1[c].GetComponent<RecipeCardFeel>()?.ObserveCard(
                     snap.Player1Cards[c].CardId, DealOrigin(player1DealOrigins, c), c);
                 cards2[c].GetComponent<RecipeCardFeel>()?.ObserveCard(

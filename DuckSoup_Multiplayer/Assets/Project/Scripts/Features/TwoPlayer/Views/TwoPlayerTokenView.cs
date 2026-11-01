@@ -1,5 +1,6 @@
 using System;
 using DuckSoup.Features.GameFeel.UI;
+using DuckSoup.Features.Art;
 using DuckSoup.Features.Round.Contracts;
 using DuckSoup.Features.Round.Models;
 using TMPro;
@@ -21,6 +22,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
         private RectTransform rect;
         private Image image;
         private TokenMotionFeel motion;
+        private TokenArtView art;
         private Transform homeParent;
         private int homeSiblingIndex;
         private Vector3 homeWorldPosition;
@@ -36,6 +38,9 @@ namespace DuckSoup.Features.TwoPlayer.Views
         {
             rect = GetComponent<RectTransform>();
             image = GetComponent<Image>();
+            art = GetComponent<TokenArtView>();
+            if (art != null && art.IsConfigured && ingredientText != null)
+                ingredientText.gameObject.SetActive(false);
             motion = GetComponent<TokenMotionFeel>();
             if (motion == null) motion = gameObject.AddComponent<TokenMotionFeel>();
         }
@@ -44,8 +49,8 @@ namespace DuckSoup.Features.TwoPlayer.Views
         {
             board = boardView ?? throw new ArgumentNullException(nameof(boardView));
             dragLayer = layer ?? throw new ArgumentNullException(nameof(layer));
-            if (ingredientText == null)
-                throw new InvalidOperationException("Asigna IngredientText al prefab TwoPlayerToken.");
+            if (ingredientText == null && (art == null || !art.IsConfigured))
+                throw new InvalidOperationException("Asigna IngredientText o TokenArtView al prefab.");
         }
 
         public void Refresh(IngredientTokenSnapshot snapshot)
@@ -55,7 +60,8 @@ namespace DuckSoup.Features.TwoPlayer.Views
                 TokenId = null;
                 image.enabled = false;
                 image.raycastTarget = false;
-                ingredientText.text = "";
+                SetLabel("");
+                art?.Render(snapshot);
                 return;
             }
 
@@ -65,18 +71,24 @@ namespace DuckSoup.Features.TwoPlayer.Views
             if (snapshot.IsConsumed)
             {
                 image.color = Color.gray;
-                ingredientText.text = "OK";
+                SetLabel("OK");
             }
             else if (snapshot.IsRevealed)
             {
                 image.color = new Color(0.95f, 0.72f, 0.35f);
-                ingredientText.text = LabelFor(snapshot.VisibleIngredient);
+                SetLabel(LabelFor(snapshot.VisibleIngredient));
             }
             else
             {
                 image.color = new Color(0.60f, 0.37f, 0.19f);
-                ingredientText.text = "?";
+                SetLabel("?");
             }
+            art?.Render(snapshot);
+        }
+
+        private void SetLabel(string value)
+        {
+            if (ingredientText != null) ingredientText.text = value;
         }
 
         public void OnPointerDown(PointerEventData data)

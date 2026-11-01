@@ -621,7 +621,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 365768959}
-  - component: {fileID: 365768958}
   - component: {fileID: 365768960}
   m_Layer: 0
   m_Name: SinglePlayerBootstrap
@@ -630,27 +629,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &365768958
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 365768957}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 75b39669c4354144eb8ddb35bb3fa7cc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  boardView: {fileID: 1434471465}
-  gameView: {fileID: 389581804}
-  gameDuration: 60
-  ingredientRevealSeconds: 3
-  recipeReplacementSeconds: 0.8
-  timeUpDisplaySeconds: 2
-  randomSeed: 2026
-  mainMenuSceneName: MainMenuScene
-  defaultTableId: classic_table
 --- !u!4 &365768959
 Transform:
   m_ObjectHideFlags: 0
@@ -745,10 +723,10 @@ MonoBehaviour:
   m_ChildAlignment: 4
   m_StartCorner: 0
   m_StartAxis: 0
-  m_CellSize: {x: 180, y: 180}
-  m_Spacing: {x: 20, y: 20}
+  m_CellSize: {x: 150, y: 150}
+  m_Spacing: {x: 15, y: 15}
   m_Constraint: 1
-  m_ConstraintCount: 3
+  m_ConstraintCount: 5
 --- !u!222 &372954896
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -1217,6 +1195,7 @@ GameObject:
   - component: {fileID: 1183650417}
   - component: {fileID: 1183650416}
   - component: {fileID: 1183650415}
+  - component: {fileID: 1183650418}
   m_Layer: 0
   m_Name: GameMusic
   m_TagString: Untagged
@@ -1251,7 +1230,7 @@ AudioSource:
   m_GameObject: {fileID: 1183650414}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: -5831786013847558220, guid: a5b39d7c5d623514a84a076c9f10ad37, type: 2}
   m_audioClip: {fileID: 8300000, guid: ecb56dffcfe194c4a877495d34f4b379, type: 3}
   m_PlayOnAwake: 1
   m_Volume: 0.627
@@ -1353,6 +1332,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1183650418
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1183650414}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f31fc46d22b84443b09871aa91a4ef7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  audioMixer: {fileID: 24100000, guid: a5b39d7c5d623514a84a076c9f10ad37, type: 2}
 --- !u!1 &1260994208
 GameObject:
   m_ObjectHideFlags: 0

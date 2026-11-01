@@ -1,72 +1,40 @@
-
 using System;
 using System.Collections.Generic;
 using DuckSoup.Core.Randomization;
+using DuckSoup.Features.Procedural;
 using DuckSoup.Features.Round.Contracts;
 using DuckSoup.Features.Round.Models;
 using DuckSoup.Features.SinglePlayer.Models;
 
 namespace DuckSoup.Features.SinglePlayer.Services
 {
-    /// <summary>
-    /// Gestiona el modo individual:
-    /// recetas, ingredientes, puntuacion,
-    /// tiempo y reposicion automatica.
-    /// </summary>
+    // Modo 1P: 15 fichas, 3 recetas procedurales, rellenado individual.
     public sealed class SinglePlayerSession
     {
         public const int RecipeSlots = 3;
-        public const int TokenSlots = 9;
+        public const int TokenSlots = 15;
 
-        private readonly List<RecipeDefinition> catalog;
-        private readonly IRandomSource random;
-
-        private readonly RecipeCardModel[] cards =
-            new RecipeCardModel[RecipeSlots];
-
-        private readonly IngredientToken[] tokens =
-            new IngredientToken[TokenSlots];
-
-        // Proxima receta preparada para cada carta.
-        private readonly RecipeDefinition[] upcomingRecipes =
-            new RecipeDefinition[RecipeSlots];
-
-        // Temporizadores para ocultar tokens.
-        private readonly float[] hideTimers =
-            new float[TokenSlots];
-
-        // Temporizadores para crear nuevos tokens.
-        private readonly float[] tokenRefillTimers =
-            new float[TokenSlots];
-
-        // Ingrediente que aparecera en cada hueco.
-        private readonly IngredientType[] pendingIngredients =
-            new IngredientType[TokenSlots];
-
-        // Temporizadores para reponer recetas.
-        private readonly float[] recipeReplacementTimers =
-            new float[RecipeSlots];
-
-        // Reservas multitactiles.
-        private readonly Dictionary<string, int> reservations =
-            new Dictionary<string, int>();
-
-        private readonly Dictionary<int, string> pointerTokens =
-            new Dictionary<int, string>();
-
-        private readonly float revealDuration;
-        private readonly float recipeReplacementDelay;
-        private readonly float tokenRefillDelay;
-
-        private int nextCardId;
-        private int nextTokenId;
+        private readonly RecipeCardModel[] cards = new RecipeCardModel[RecipeSlots];
+        private readonly IngredientToken[] tokens = new IngredientToken[TokenSlots];
+        private readonly float[] hideTimers = new float[TokenSlots];
+        private readonly float[] refillTimers = new float[TokenSlots];
+        private readonly IngredientType[] pendingIngredients = new IngredientType[TokenSlots];
+        private readonly float[] recipeTimers = new float[RecipeSlots];
+        private readonly Dictionary<string, int> tokenOwners = new Dictionary<string, int>();
+        private readonly Dictionary<int, string> pointerTokens = new Dictionary<int, string>();
+        private readonly AvailableRecipeGenerator generator;
+        private readonly float revealSeconds;
+        private readonly float refillSeconds;
+        private readonly float recipeSeconds;
+        private int tokenSerial;
+        private int cardSerial;
 
         public float RemainingSeconds { get; private set; }
-
         public int CompletedRecipes { get; private set; }
-
         public bool IsTimeUp { get; private set; }
 
+        // Se conserva el parametro definitions para no romper el Bootstrap existente.
+        // Las nuevas recetas ya no dependen de un catalogo fijo.
         public SinglePlayerSession(
             IEnumerable<RecipeDefinition> definitions,
             IRandomSource randomSource,
@@ -75,626 +43,227 @@ namespace DuckSoup.Features.SinglePlayer.Services
             float recipeReplacementSeconds = 0.8f,
             float tokenRefillSeconds = 1.2f)
         {
-            if (definitions == null)
-                throw new ArgumentNullException(
-                    nameof(definitions));
-
-            random = randomSource ??
-                throw new ArgumentNullException(
-                    nameof(randomSource));
-
-            ValidateDuration(
-                durationSeconds, nameof(durationSeconds));
-
-            ValidateDuration(
-                revealSeconds, nameof(revealSeconds));
-
-            ValidateDuration(
-                recipeReplacementSeconds,
-                nameof(recipeReplacementSeconds));
-
-            ValidateDuration(
-                tokenRefillSeconds,
-                nameof(tokenRefillSeconds));
-
+            if (definitions == null) throw new ArgumentNullException(nameof(definitions));
+            if (randomSource == null) throw new ArgumentNullException(nameof(randomSource));
+            CheckPositive(durationSeconds, nameof(durationSeconds));
+            CheckPositive(revealSeconds, nameof(revealSeconds));
+            CheckPositive(recipeReplacementSeconds, nameof(recipeReplacementSeconds));
+            CheckPositive(tokenRefillSeconds, nameof(tokenRefillSeconds));
+            generator = new AvailableRecipeGenerator(randomSource);
+            this.revealSeconds = revealSeconds;
+            recipeSeconds = recipeReplacementSeconds;
+            refillSeconds = tokenRefillSeconds;
             RemainingSeconds = durationSeconds;
-
-            revealDuration = revealSeconds;
-            recipeReplacementDelay = recipeReplacementSeconds;
-            tokenRefillDelay = tokenRefillSeconds;
-
-            catalog = new List<RecipeDefinition>();
-
-            var ids = new HashSet<string>(
-                StringComparer.Ordinal);
-
-            foreach (RecipeDefinition recipe in definitions)
-            {
-                if (recipe == null)
-                    throw new ArgumentException(
-                        "El catalogo contiene una receta nula.");
-
-                if (!ids.Add(recipe.Id))
-                    throw new ArgumentException(
-                        "Hay IDs de receta duplicados.");
-
-                if (recipe.RequiredIngredients.Count != 3)
-                    throw new ArgumentException(
-                        "Las recetas deben tener " +
-                        "tres ingredientes.");
-
-                catalog.Add(recipe);
-            }
-
-            // Tres recetas visibles y otras
-            // tres preparadas para el futuro.
-            if (catalog.Count < RecipeSlots * 2)
-                throw new ArgumentException(
-                    "Se necesitan al menos seis recetas.");
-
             for (int i = 0; i < TokenSlots; i++)
             {
                 hideTimers[i] = -1f;
-                tokenRefillTimers[i] = -1f;
-                pendingIngredients[i] = IngredientType.None;
+                refillTimers[i] = -1f;
             }
-
-            for (int i = 0; i < RecipeSlots; i++)
-            {
-                recipeReplacementTimers[i] = -1f;
-            }
-
-            CreateInitialBoard();
+            for (int i = 0; i < RecipeSlots; i++) recipeTimers[i] = -1f;
+            var initialStock = generator.InitialStock(TokenSlots);
+            for (int i = 0; i < TokenSlots; i++) tokens[i] = NewToken(initialStock[i]);
+            for (int i = 0; i < RecipeSlots; i++) cards[i] = NewCard();
         }
 
-        private static void ValidateDuration(
-            float seconds,
-            string parameterName)
+        private static void CheckPositive(float value, string name)
         {
-            if (seconds <= 0f ||
-                float.IsNaN(seconds) ||
-                float.IsInfinity(seconds))
-            {
-                throw new ArgumentOutOfRangeException(
-                    parameterName);
-            }
+            if (value <= 0f || float.IsNaN(value) || float.IsInfinity(value))
+                throw new ArgumentOutOfRangeException(name);
         }
 
-        // ===================================
-        // INITIAL BOARD
-        // ===================================
-
-        private void CreateInitialBoard()
+        private IngredientToken NewToken(IngredientType type)
         {
-            var candidates =
-                new List<RecipeDefinition>(catalog);
+            tokenSerial++;
+            return new IngredientToken($"sp_token_{tokenSerial:000000}", type);
+        }
 
-            // Repartimos tres recetas distintas.
-            for (int i = 0; i < RecipeSlots; i++)
-            {
-                int selected = random.NextInt(
-                    i, candidates.Count);
+        private RecipeCardModel NewCard()
+        {
+            cardSerial++;
+            return new RecipeCardModel($"sp_card_{cardSerial:000000}",
+                generator.Generate(GetStockIncludingPending(), AllCards()));
+        }
 
-                RecipeDefinition temp = candidates[i];
-                candidates[i] = candidates[selected];
-                candidates[selected] = temp;
+        private IEnumerable<RecipeCardModel> AllCards()
+        {
+            for (int i = 0; i < RecipeSlots; i++) if (cards[i] != null) yield return cards[i];
+        }
 
-                cards[i] = CreateCard(candidates[i]);
-            }
-
-            // Generamos los nueve ingredientes
-            // necesarios para las cartas iniciales.
-            var ingredients = new List<IngredientType>();
-
-            foreach (RecipeCardModel card in cards)
-            {
-                ingredients.AddRange(
-                    card.Definition.RequiredIngredients);
-            }
-
-            Shuffle(ingredients);
-
+        private IEnumerable<IngredientType> GetStockIncludingPending()
+        {
             for (int i = 0; i < TokenSlots; i++)
             {
-                tokens[i] = CreateToken(ingredients[i]);
+                if (tokens[i] != null) yield return tokens[i].Ingredient;
+                else if (refillTimers[i] >= 0f) yield return pendingIngredients[i];
             }
+        }
 
-            // Preparamos una receta futura por carta.
+        private int FindToken(string tokenId)
+        {
+            if (string.IsNullOrWhiteSpace(tokenId)) return -1;
+            for (int i = 0; i < TokenSlots; i++)
+                if (tokens[i] != null && tokens[i].Id == tokenId) return i;
+            return -1;
+        }
+
+        private int FindCard(string cardId)
+        {
+            if (string.IsNullOrWhiteSpace(cardId)) return -1;
             for (int i = 0; i < RecipeSlots; i++)
-            {
-                upcomingRecipes[i] = ChooseUpcomingRecipe();
-            }
+                if (cards[i].CardId == cardId) return i;
+            return -1;
         }
 
-        private RecipeCardModel CreateCard(
-            RecipeDefinition definition)
+        private bool Owns(string tokenId, int pointerId)
         {
-            nextCardId++;
-
-            return new RecipeCardModel(
-                $"sp_card_{nextCardId:0000}",
-                definition);
+            return !string.IsNullOrWhiteSpace(tokenId) &&
+                tokenOwners.TryGetValue(tokenId, out int owner) && owner == pointerId &&
+                pointerTokens.TryGetValue(pointerId, out string token) && token == tokenId;
         }
 
-        private IngredientToken CreateToken(
-            IngredientType ingredient)
+        public bool TryBeginGesture(string tokenId, int pointerId)
         {
-            nextTokenId++;
-
-            return new IngredientToken(
-                $"sp_token_{nextTokenId:0000}",
-                ingredient);
-        }
-
-        /// <summary>
-        /// Selecciona una receta que no este
-        /// visible ni preparada en otro espacio.
-        /// </summary>
-        private RecipeDefinition ChooseUpcomingRecipe()
-        {
-            var usedIds = new HashSet<string>(
-                StringComparer.Ordinal);
-
-            foreach (RecipeCardModel card in cards)
-            {
-                usedIds.Add(card.Definition.Id);
-            }
-
-            foreach (RecipeDefinition recipe in upcomingRecipes)
-            {
-                if (recipe != null)
-                    usedIds.Add(recipe.Id);
-            }
-
-            var available = new List<RecipeDefinition>();
-
-            foreach (RecipeDefinition recipe in catalog)
-            {
-                if (!usedIds.Contains(recipe.Id))
-                    available.Add(recipe);
-            }
-
-            if (available.Count == 0)
-                throw new InvalidOperationException(
-                    "No hay recetas disponibles " +
-                    "para preparar la siguiente.");
-
-            return available[
-                random.NextInt(0, available.Count)];
-        }
-
-        private void Shuffle<T>(List<T> items)
-        {
-            for (int i = items.Count - 1; i > 0; i--)
-            {
-                int j = random.NextInt(0, i + 1);
-
-                T temp = items[i];
-                items[i] = items[j];
-                items[j] = temp;
-            }
-        }
-
-        // ===================================
-        // INGREDIENT INTERACTION
-        // ===================================
-
-        public bool TryBeginGesture(
-            string tokenId,
-            int pointerId)
-        {
-            if (IsTimeUp ||
-                string.IsNullOrWhiteSpace(tokenId) ||
-                reservations.ContainsKey(tokenId) ||
-                pointerTokens.ContainsKey(pointerId))
-            {
-                return false;
-            }
-
-            int index = FindTokenIndex(tokenId);
-
-            if (index < 0)
-                return false;
-
-            IngredientToken token = tokens[index];
-
-            if (token.IsConsumed)
-                return false;
-
-            if (!token.IsRevealed && !token.TryReveal())
-                return false;
-
-            reservations.Add(tokenId, pointerId);
+            if (IsTimeUp || tokenOwners.ContainsKey(tokenId ?? "") ||
+                pointerTokens.ContainsKey(pointerId)) return false;
+            int slot = FindToken(tokenId);
+            if (slot < 0) return false;
+            IngredientToken token = tokens[slot];
+            if (token.IsConsumed || (!token.IsRevealed && !token.TryReveal())) return false;
+            tokenOwners.Add(tokenId, pointerId);
             pointerTokens.Add(pointerId, tokenId);
-
-            // No ocultar mientras se arrastra.
-            hideTimers[index] = -1f;
-
+            hideTimers[slot] = -1f;
             return true;
         }
 
-        /// <summary>
-        /// Entrega un ingrediente a una receta.
-        ///
-        /// Si se acepta:
-        /// - Consume el ingrediente actual.
-        /// - Deja su hueco temporalmente vacio.
-        /// - Prepara un ingrediente nuevo.
-        /// - Actualiza el progreso.
-        /// </summary>
         public bool TryDeliver(
-            string tokenId,
-            int pointerId,
-            string cardId,
-            out bool recipeCompleted)
+            string tokenId, int pointerId, string cardId, out bool recipeCompleted)
         {
             recipeCompleted = false;
-
-            if (!HasReservation(tokenId, pointerId))
-                return false;
-
+            if (!Owns(tokenId, pointerId)) return false;
             try
             {
-                if (IsTimeUp)
-                    return false;
+                if (IsTimeUp) return false;
+                int t = FindToken(tokenId);
+                int c = FindCard(cardId);
+                if (t < 0 || c < 0 || recipeTimers[c] >= 0f) return false;
+                IngredientToken token = tokens[t];
+                RecipeCardModel card = cards[c];
+                if (!token.IsRevealed || token.IsConsumed ||
+                    !card.Progress.NeedsIngredient(token.Ingredient)) return false;
+                if (!token.TryConsume()) return false;
+                if (!card.Progress.TryAddIngredient(token.Ingredient))
+                    throw new InvalidOperationException("No se pudo actualizar la receta.");
 
-                int tokenIndex = FindTokenIndex(tokenId);
-                int cardIndex = FindCardIndex(cardId);
-
-                if (tokenIndex < 0 || cardIndex < 0)
-                    return false;
-
-                if (recipeReplacementTimers[cardIndex] >= 0f)
-                    return false;
-
-                IngredientToken token = tokens[tokenIndex];
-                RecipeCardModel card = cards[cardIndex];
-
-                if (token.IsConsumed ||
-                    !token.IsRevealed ||
-                    !card.Progress.NeedsIngredient(
-                        token.Ingredient))
-                {
-                    return false;
-                }
-
-                if (!token.TryConsume())
-                    return false;
-
-                if (!card.Progress.TryAddIngredient(
-                    token.Ingredient))
-                {
-                    throw new InvalidOperationException(
-                        "Error al actualizar la receta.");
-                }
-
-                // Cada ingrediente utilizado prepara
-                // uno de la proxima receta.
-                int deliveredIndex =
-                    card.Progress.CompletedIngredientCount - 1;
-
-                IngredientType nextIngredient =
-                    upcomingRecipes[cardIndex]
-                        .RequiredIngredients[deliveredIndex];
-
-                // Liberamos el espacio de la mesa.
-                tokens[tokenIndex] = null;
-
-                hideTimers[tokenIndex] = -1f;
-
-                // Programamos la nueva ficha
-                // para este mismo espacio.
-                pendingIngredients[tokenIndex] =
-                    nextIngredient;
-
-                tokenRefillTimers[tokenIndex] =
-                    tokenRefillDelay;
-
-                // Comprobar si termino la receta.
+                tokens[t] = null;
+                hideTimers[t] = -1f;
+                pendingIngredients[t] = generator.RandomIngredient();
+                refillTimers[t] = refillSeconds;
                 if (card.IsComplete)
                 {
                     CompletedRecipes++;
                     recipeCompleted = true;
-
-                    recipeReplacementTimers[cardIndex] =
-                        recipeReplacementDelay;
+                    recipeTimers[c] = recipeSeconds;
                 }
-
                 return true;
             }
-            finally
-            {
-                CancelGesture(tokenId, pointerId);
-            }
+            finally { CancelGesture(tokenId, pointerId); }
         }
 
-        public void CancelGesture(
-            string tokenId,
-            int pointerId)
+        public void CancelGesture(string tokenId, int pointerId)
         {
-            if (!HasReservation(tokenId, pointerId))
-                return;
-
-            reservations.Remove(tokenId);
+            if (!Owns(tokenId, pointerId)) return;
+            tokenOwners.Remove(tokenId);
             pointerTokens.Remove(pointerId);
-
-            int index = FindTokenIndex(tokenId);
-
-            if (index >= 0 &&
-                tokens[index].IsRevealed &&
-                !tokens[index].IsConsumed &&
-                !IsTimeUp)
-            {
-                hideTimers[index] = revealDuration;
-            }
+            int index = FindToken(tokenId);
+            if (!IsTimeUp && index >= 0 && tokens[index].IsRevealed &&
+                !tokens[index].IsConsumed) hideTimers[index] = revealSeconds;
         }
 
         public void CancelAllGestures()
         {
-            foreach (string tokenId in reservations.Keys)
+            foreach (string tokenId in tokenOwners.Keys)
             {
-                int index = FindTokenIndex(tokenId);
-
-                if (index >= 0 &&
-                    tokens[index].IsRevealed &&
-                    !tokens[index].IsConsumed &&
-                    !IsTimeUp)
-                {
-                    hideTimers[index] = revealDuration;
-                }
+                int index = FindToken(tokenId);
+                if (!IsTimeUp && index >= 0 && tokens[index].IsRevealed &&
+                    !tokens[index].IsConsumed) hideTimers[index] = revealSeconds;
             }
-
-            reservations.Clear();
+            tokenOwners.Clear();
             pointerTokens.Clear();
         }
 
-        // ===================================
-        // GAME TIMERS
-        // ===================================
-
         public bool Advance(float deltaTime)
         {
-            if (deltaTime < 0f ||
-                float.IsNaN(deltaTime) ||
-                float.IsInfinity(deltaTime))
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(deltaTime));
-            }
-
-            if (IsTimeUp || deltaTime == 0f)
-                return false;
-
-            RemainingSeconds = Math.Max(
-                0f, RemainingSeconds - deltaTime);
-
+            if (deltaTime < 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime))
+                throw new ArgumentOutOfRangeException(nameof(deltaTime));
+            if (IsTimeUp || deltaTime == 0f) return false;
+            RemainingSeconds = Math.Max(0f, RemainingSeconds - deltaTime);
             if (RemainingSeconds <= 0f)
             {
                 IsTimeUp = true;
                 CancelAllGestures();
                 return true;
             }
-
             bool changed = false;
-
-            // 1. Ocultar fichas reveladas.
-            for (int i = 0; i < TokenSlots; i++)
+            for (int t = 0; t < TokenSlots; t++)
             {
-                if (tokens[i] == null ||
-                    hideTimers[i] < 0f)
+                if (tokens[t] != null && hideTimers[t] >= 0f &&
+                    !tokenOwners.ContainsKey(tokens[t].Id))
                 {
-                    continue;
-                }
-
-                if (reservations.ContainsKey(tokens[i].Id))
-                    continue;
-
-                hideTimers[i] -= deltaTime;
-
-                if (hideTimers[i] <= 0f)
-                {
-                    changed |= tokens[i].TryHide();
-                    hideTimers[i] = -1f;
-                }
-            }
-
-            // 2. Reponer CADA token utilizado
-            // cuando termine su propio temporizador.
-            for (int i = 0; i < TokenSlots; i++)
-            {
-                if (tokenRefillTimers[i] < 0f)
-                    continue;
-
-                tokenRefillTimers[i] -= deltaTime;
-
-                if (tokenRefillTimers[i] <= 0f)
-                {
-                    if (tokens[i] != null)
+                    hideTimers[t] -= deltaTime;
+                    if (hideTimers[t] <= 0f)
                     {
-                        throw new InvalidOperationException(
-                            "El hueco de reposicion " +
-                            "ya contiene un ingrediente.");
+                        changed |= tokens[t].TryHide();
+                        hideTimers[t] = -1f;
                     }
-
-                    tokens[i] = CreateToken(
-                        pendingIngredients[i]);
-
-                    pendingIngredients[i] =
-                        IngredientType.None;
-
-                    tokenRefillTimers[i] = -1f;
-                    hideTimers[i] = -1f;
-
-                    changed = true;
                 }
-            }
-
-            // 3. Reponer recetas completadas.
-            for (int i = 0; i < RecipeSlots; i++)
-            {
-                if (recipeReplacementTimers[i] < 0f)
-                    continue;
-
-                recipeReplacementTimers[i] -= deltaTime;
-
-                if (recipeReplacementTimers[i] <= 0f)
+                if (refillTimers[t] >= 0f)
                 {
-                    ReplaceCompletedCard(i);
-
-                    recipeReplacementTimers[i] = -1f;
-
-                    changed = true;
+                    refillTimers[t] -= deltaTime;
+                    if (refillTimers[t] <= 0f)
+                    {
+                        if (tokens[t] != null) throw new InvalidOperationException("Hueco ocupado.");
+                        tokens[t] = NewToken(pendingIngredients[t]);
+                        pendingIngredients[t] = IngredientType.None;
+                        refillTimers[t] = -1f;
+                        changed = true;
+                    }
                 }
             }
-
+            for (int c = 0; c < RecipeSlots; c++)
+            {
+                if (recipeTimers[c] < 0f) continue;
+                recipeTimers[c] -= deltaTime;
+                if (recipeTimers[c] > 0f) continue;
+                cards[c] = NewCard();
+                recipeTimers[c] = -1f;
+                changed = true;
+            }
             return changed;
         }
 
-        // ===================================
-        // RECIPE REPLACEMENT
-        // ===================================
-
-        /// <summary>
-        /// La proxima receta ya estaba preparada.
-        /// Sus ingredientes se van incorporando
-        /// a la mesa a traves de los token refills.
-        /// </summary>
-        private void ReplaceCompletedCard(int cardIndex)
-        {
-            RecipeDefinition nextRecipe =
-                upcomingRecipes[cardIndex];
-
-            if (nextRecipe == null)
-            {
-                throw new InvalidOperationException(
-                    "No existe una receta preparada.");
-            }
-
-            // Reemplazamos solamente la carta.
-            cards[cardIndex] = CreateCard(nextRecipe);
-
-            // Preparamos la receta que vendra despues.
-            upcomingRecipes[cardIndex] = null;
-
-            upcomingRecipes[cardIndex] =
-                ChooseUpcomingRecipe();
-        }
-
-        // ===================================
-        // LOOKUP
-        // ===================================
-
-        private int FindTokenIndex(string tokenId)
-        {
-            if (string.IsNullOrWhiteSpace(tokenId))
-                return -1;
-
-            for (int i = 0; i < TokenSlots; i++)
-            {
-                if (tokens[i] != null &&
-                    tokens[i].Id == tokenId)
-                {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
-
-        private int FindCardIndex(string cardId)
-        {
-            if (string.IsNullOrWhiteSpace(cardId))
-                return -1;
-
-            for (int i = 0; i < RecipeSlots; i++)
-            {
-                if (cards[i].CardId == cardId)
-                    return i;
-            }
-
-            return -1;
-        }
-
-        private bool HasReservation(
-            string tokenId,
-            int pointerId)
-        {
-            if (string.IsNullOrWhiteSpace(tokenId))
-                return false;
-
-            return reservations.TryGetValue(
-                tokenId, out int owner)
-                && owner == pointerId
-                && pointerTokens.TryGetValue(
-                    pointerId, out string reservedId)
-                && reservedId == tokenId;
-        }
-
-        // ===================================
-        // READ-ONLY SNAPSHOT
-        // ===================================
-
         public SinglePlayerSnapshot GetSnapshot()
         {
-            var cardSnapshots =
-                new List<RecipeCardSnapshot>();
-
+            var recipes = new List<RecipeCardSnapshot>();
             foreach (RecipeCardModel card in cards)
             {
-                var requirements =
-                    new List<IngredientRequirementSnapshot>();
-
-                var visited =
-                    new HashSet<IngredientType>();
-
-                foreach (IngredientType ingredient in
-                         card.Definition.RequiredIngredients)
+                var requirements = new List<IngredientRequirementSnapshot>();
+                var visited = new HashSet<IngredientType>();
+                foreach (IngredientType type in card.Definition.RequiredIngredients)
                 {
-                    if (!visited.Add(ingredient))
-                        continue;
-
-                    requirements.Add(
-                        new IngredientRequirementSnapshot(
-                            ingredient,
-                            card.Progress.GetRequiredCount(
-                                ingredient),
-                            card.Progress.GetCompletedCount(
-                                ingredient)));
+                    if (!visited.Add(type)) continue;
+                    requirements.Add(new IngredientRequirementSnapshot(
+                        type, card.Progress.GetRequiredCount(type),
+                        card.Progress.GetCompletedCount(type)));
                 }
-
-                cardSnapshots.Add(new RecipeCardSnapshot(
-                    card.CardId,
-                    card.Definition.Id,
-                    card.Definition.DisplayName,
-                    requirements));
+                recipes.Add(new RecipeCardSnapshot(card.CardId, card.Definition.Id,
+                    card.Definition.DisplayName, requirements));
             }
-
-            var tokenSnapshots =
-                new List<IngredientTokenSnapshot>();
-
+            var snapshots = new List<IngredientTokenSnapshot>();
             foreach (IngredientToken token in tokens)
-            {
-                if (token == null)
-                {
-                    // Hueco que espera reposicion.
-                    tokenSnapshots.Add(null);
-                    continue;
-                }
-
-                tokenSnapshots.Add(
-                    new IngredientTokenSnapshot(
-                        token.Id,
-                        token.Ingredient,
-                        token.IsRevealed,
-                        token.IsConsumed));
-            }
-
+                snapshots.Add(token == null ? null : new IngredientTokenSnapshot(
+                    token.Id, token.Ingredient, token.IsRevealed, token.IsConsumed));
             return new SinglePlayerSnapshot(
-                cardSnapshots,
-                tokenSnapshots,
-                CompletedRecipes,
-                RemainingSeconds);
+                recipes, snapshots, CompletedRecipes, RemainingSeconds);
         }
     }
 }
-
