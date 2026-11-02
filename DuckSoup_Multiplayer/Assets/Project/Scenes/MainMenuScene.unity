@@ -10023,8 +10023,8 @@ MonoBehaviour:
   - tableId: classic_table
     displayName: Classic Table
     previewSprite: {fileID: 21300000, guid: 14a66ce3f2f75fd498f1f5ccf69096d9, type: 3}
-  - tableId: imperio
-    displayName: imperio patito
+  - tableId: conveyor_table
+    displayName: Conveyor Table
     previewSprite: {fileID: 21300000, guid: c590f75a3b216ff48a502c75ebd1b5dd, type: 3}
   carouselFeel: {fileID: 108498635}
   panelTransition: {fileID: 610907750}

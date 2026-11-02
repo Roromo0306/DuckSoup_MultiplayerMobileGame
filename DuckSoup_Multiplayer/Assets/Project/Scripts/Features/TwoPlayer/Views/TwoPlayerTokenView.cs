@@ -1,4 +1,3 @@
-
 using System;
 using DuckSoup.Features.GameFeel.UI;
 using DuckSoup.Features.Art;
@@ -8,38 +7,27 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-
 using Image = UnityEngine.UI.Image;
 
 namespace DuckSoup.Features.TwoPlayer.Views
 {
     [RequireComponent(typeof(Image))]
     public sealed class TwoPlayerTokenView : MonoBehaviour,
-        IPointerDownHandler,
-        IPointerUpHandler,
-        IBeginDragHandler,
-        IDragHandler,
-        IEndDragHandler
+        IPointerDownHandler, IPointerUpHandler,
+        IBeginDragHandler, IDragHandler, IEndDragHandler
     {
-        [SerializeField]
-        private TextMeshProUGUI ingredientText;
-
+        [SerializeField] private TextMeshProUGUI ingredientText;
         private TwoPlayerBoardView board;
         private RectTransform dragLayer;
         private RectTransform rect;
         private Image image;
-
         private TokenMotionFeel motion;
         private TokenArtView art;
-
-        // Nuevo: controla la orientacion del dibujo.
         private TwoPlayerTokenFacing facing;
-
         private Transform homeParent;
         private int homeSiblingIndex;
         private Vector3 homeWorldPosition;
         private Vector2 pointerOffset;
-
         private int ownerPointerId;
         private bool held;
         private bool dragging;
@@ -53,84 +41,47 @@ namespace DuckSoup.Features.TwoPlayer.Views
             image = GetComponent<Image>();
             art = GetComponent<TokenArtView>();
 
-            // NUEVO: componente visual de orientacion.
+            // Solo en 2P: rotamos el dibujo, no la zona tactil.
             facing = GetComponent<TwoPlayerTokenFacing>();
-
             if (facing == null)
-            {
-                facing = gameObject
-                    .AddComponent<TwoPlayerTokenFacing>();
-            }
-
-            if (art != null &&
-                art.IsConfigured &&
-                ingredientText != null)
-            {
+                facing = gameObject.AddComponent<TwoPlayerTokenFacing>();
+            if (art != null && art.IsConfigured && ingredientText != null)
                 ingredientText.gameObject.SetActive(false);
-            }
-
             motion = GetComponent<TokenMotionFeel>();
-
-            if (motion == null)
-            {
-                motion = gameObject
-                    .AddComponent<TokenMotionFeel>();
-            }
+            if (motion == null) motion = gameObject.AddComponent<TokenMotionFeel>();
         }
 
-        public void Initialize(
-            TwoPlayerBoardView boardView,
-            RectTransform layer)
+        public void Initialize(TwoPlayerBoardView boardView, RectTransform layer)
         {
-            board = boardView ??
-                throw new ArgumentNullException(
-                    nameof(boardView));
-
-            dragLayer = layer ??
-                throw new ArgumentNullException(
-                    nameof(layer));
-
-            if (ingredientText == null &&
-                (art == null || !art.IsConfigured))
-            {
-                throw new InvalidOperationException(
-                    "Asigna IngredientText o TokenArtView.");
-            }
+            board = boardView ?? throw new ArgumentNullException(nameof(boardView));
+            dragLayer = layer ?? throw new ArgumentNullException(nameof(layer));
+            if (ingredientText == null && (art == null || !art.IsConfigured))
+                throw new InvalidOperationException("Asigna IngredientText o TokenArtView al prefab.");
         }
 
-        public void Refresh(
-            IngredientTokenSnapshot snapshot)
+        public void Refresh(IngredientTokenSnapshot snapshot)
         {
             if (snapshot == null)
             {
-                // Al consumirlo, recupera la orientacion.
                 facing?.SetRotated(false);
-
                 TokenId = null;
                 image.enabled = false;
                 image.raycastTarget = false;
-
                 SetLabel("");
                 art?.Render(snapshot);
                 return;
             }
 
-            // NUEVO:
-            // Una ficha nueva o boca abajo
-            // siempre vuelve a su orientacion normal.
+            // Una ficha nueva o boca abajo siempre empieza normal.
             if (TokenId != snapshot.Id ||
-                !snapshot.IsRevealed ||
-                snapshot.IsConsumed)
+                !snapshot.IsRevealed || snapshot.IsConsumed)
             {
                 facing?.SetRotated(false);
             }
 
             TokenId = snapshot.Id;
-
             image.enabled = true;
-            image.raycastTarget =
-                !snapshot.IsConsumed && !returning;
-
+            image.raycastTarget = !snapshot.IsConsumed && !returning;
             if (snapshot.IsConsumed)
             {
                 image.color = Color.gray;
@@ -138,296 +89,165 @@ namespace DuckSoup.Features.TwoPlayer.Views
             }
             else if (snapshot.IsRevealed)
             {
-                image.color =
-                    new Color(0.95f, 0.72f, 0.35f);
-
-                SetLabel(
-                    LabelFor(snapshot.VisibleIngredient));
+                image.color = new Color(0.95f, 0.72f, 0.35f);
+                SetLabel(LabelFor(snapshot.VisibleIngredient));
             }
             else
             {
-                image.color =
-                    new Color(0.60f, 0.37f, 0.19f);
-
+                image.color = new Color(0.60f, 0.37f, 0.19f);
                 SetLabel("?");
             }
-
             art?.Render(snapshot);
         }
 
         private void SetLabel(string value)
         {
-            if (ingredientText != null)
-                ingredientText.text = value;
+            if (ingredientText != null) ingredientText.text = value;
         }
 
-        public void OnPointerDown(
-            PointerEventData data)
+        public void OnPointerDown(PointerEventData data)
         {
-            if (held ||
-                returning ||
-                board == null ||
-                string.IsNullOrEmpty(TokenId) ||
-                data.button !=
-                PointerEventData.InputButton.Left)
-            {
-                return;
-            }
-
-            if (!board.TryBeginToken(
-                TokenId,
-                data.pointerId))
-            {
-                return;
-            }
-
+            if (held || returning || board == null || string.IsNullOrEmpty(TokenId) ||
+                data.button != PointerEventData.InputButton.Left) return;
+            if (!board.TryBeginToken(TokenId, data.pointerId)) return;
             ownerPointerId = data.pointerId;
             held = true;
 
-            // =====================================
-            // NUEVO: ORIENTACION SEGUN EL JUGADOR
-            // =====================================
-
-            // Pantalla superior: Player 1.
-            // Pantalla inferior: Player 2.
+            // PointerEventData.position usa pixeles de pantalla,
+            // con Y=0 en el borde inferior.
+            // Mitad superior: P1, imagen girada 180 grados.
+            // Mitad inferior: P2, imagen sin girar.
             bool touchedFromTop =
                 data.position.y >= Screen.height * 0.5f;
 
             facing?.SetRotated(touchedFromTop);
-
-            // Conservamos la animacion de tap.
             motion.OnRevealed();
         }
 
-        public void OnBeginDrag(
-            PointerEventData data)
+        public void OnBeginDrag(PointerEventData data)
         {
-            if (!IsOwner(data) || dragging)
-                return;
-
+            if (!IsOwner(data) || dragging) return;
             motion.OnDragStarted();
-
             homeParent = rect.parent;
             homeSiblingIndex = rect.GetSiblingIndex();
             homeWorldPosition = rect.position;
-
             rect.SetParent(dragLayer, true);
             rect.SetAsLastSibling();
-
             dragging = true;
 
-            if (RectTransformUtility
-                .ScreenPointToLocalPointInRectangle(
-                    dragLayer,
-                    data.position,
-                    data.pressEventCamera,
-                    out Vector2 localPointer))
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                dragLayer, data.position, data.pressEventCamera, out Vector2 localPointer))
             {
-                Vector3 localToken =
-                    dragLayer.InverseTransformPoint(
-                        rect.position);
-
+                Vector3 localToken = dragLayer.InverseTransformPoint(rect.position);
                 pointerOffset = new Vector2(
-                    localToken.x - localPointer.x,
-                    localToken.y - localPointer.y);
+                    localToken.x - localPointer.x, localToken.y - localPointer.y);
             }
-            else
-            {
-                pointerOffset = Vector2.zero;
-            }
-
+            else pointerOffset = Vector2.zero;
             UpdatePosition(data);
         }
 
         public void OnDrag(PointerEventData data)
         {
-            if (IsOwner(data) && dragging)
-            {
-                UpdatePosition(data);
-            }
+            if (IsOwner(data) && dragging) UpdatePosition(data);
         }
 
-        public void OnEndDrag(
-            PointerEventData data)
+        public void OnEndDrag(PointerEventData data) => Finish(data);
+        public void OnPointerUp(PointerEventData data) => Finish(data);
+
+        private void UpdatePosition(PointerEventData data)
         {
-            Finish(data);
-        }
-
-        public void OnPointerUp(
-            PointerEventData data)
-        {
-            Finish(data);
-        }
-
-        private void UpdatePosition(
-            PointerEventData data)
-        {
-            if (!RectTransformUtility
-                .ScreenPointToLocalPointInRectangle(
-                    dragLayer,
-                    data.position,
-                    data.pressEventCamera,
-                    out Vector2 localPointer))
-            {
-                return;
-            }
-
-            Vector2 localTarget =
-                localPointer + pointerOffset;
-
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                dragLayer, data.position, data.pressEventCamera, out Vector2 localPointer)) return;
+            Vector2 localTarget = localPointer + pointerOffset;
             rect.position = dragLayer.TransformPoint(
-                new Vector3(
-                    localTarget.x,
-                    localTarget.y,
-                    0f));
+                new Vector3(localTarget.x, localTarget.y, 0f));
         }
 
-        private bool IsOwner(
-            PointerEventData data)
-        {
-            return held &&
-                data.pointerId == ownerPointerId;
-        }
+        private bool IsOwner(PointerEventData data) =>
+            held && data.pointerId == ownerPointerId;
 
-        private void Finish(
-            PointerEventData data)
+        private void Finish(PointerEventData data)
         {
-            if (!IsOwner(data))
-                return;
-
+            if (!IsOwner(data)) return;
             string id = TokenId;
             int pointer = ownerPointerId;
             bool wasDragged = dragging;
-
             Vector2 screenPoint = data.position;
             Camera camera = data.pressEventCamera;
 
-            // Validamos antes de devolver el token.
+            // La validacion ocurre ANTES de devolver la ficha.
             bool accepted = board.FinishTokenGesture(
-                id,
-                pointer,
-                screenPoint,
-                camera,
-                wasDragged);
+                id, pointer, screenPoint, camera, wasDragged);
 
-            if (!accepted &&
-                wasDragged &&
-                homeParent != null)
+            if (!accepted && wasDragged && homeParent != null)
             {
                 held = false;
                 returning = true;
                 image.raycastTarget = false;
+                // El TokenSlot puede seguir viajando por la cinta.
+                // La animacion busca su posicion ACTUAL en cada frame.
+                RectTransform movingSlot = homeParent as RectTransform;
+                Action finished = () =>
+                {
+                    if (this == null) return;
+                    RestorePosition();
+                    board?.Refresh();
+                };
 
-                motion.ReturnTo(
-                    homeWorldPosition,
-                    () =>
-                    {
-                        if (this == null)
-                            return;
-
-                        RestorePosition();
-                        board?.Refresh();
-                    });
+                if (movingSlot != null)
+                    motion.ReturnToMovingSlot(movingSlot, finished);
+                else
+                    motion.ReturnTo(homeWorldPosition, finished);
             }
-            else
-            {
-                RestorePosition();
-            }
+            else RestorePosition();
         }
 
         public void ForceCancel()
         {
             motion?.CancelReturn();
-
-            if (!held && !dragging && !returning)
-                return;
-
-            if (held)
-            {
-                board?.CancelTokenGesture(
-                    TokenId,
-                    ownerPointerId);
-            }
-
+            if (!held && !dragging && !returning) return;
+            if (held) board?.CancelTokenGesture(TokenId, ownerPointerId);
             RestorePosition();
         }
 
         private void RestorePosition()
         {
-            if (dragging || returning)
-                motion?.OnDragStarted();
-
+            if (dragging || returning) motion?.OnDragStarted();
             if (dragging && homeParent != null)
             {
                 rect.SetParent(homeParent, false);
                 rect.SetSiblingIndex(homeSiblingIndex);
-
                 rect.anchorMin = Vector2.zero;
                 rect.anchorMax = Vector2.one;
-
                 rect.offsetMin = Vector2.zero;
                 rect.offsetMax = Vector2.zero;
-
                 rect.localScale = Vector3.one;
                 rect.localRotation = Quaternion.identity;
             }
-
             held = false;
             dragging = false;
             returning = false;
-
             homeParent = null;
             pointerOffset = Vector2.zero;
         }
 
-        private void OnDisable()
-        {
-            ForceCancel();
-        }
+        private void OnDisable() => ForceCancel();
+        private void OnApplicationPause(bool paused) { if (paused) ForceCancel(); }
+        private void OnApplicationFocus(bool focus) { if (!focus) ForceCancel(); }
 
-        private void OnApplicationPause(bool paused)
-        {
-            if (paused)
-                ForceCancel();
-        }
-
-        private void OnApplicationFocus(bool focus)
-        {
-            if (!focus)
-                ForceCancel();
-        }
-
-        private static string LabelFor(
-            IngredientType type)
+        private static string LabelFor(IngredientType type)
         {
             switch (type)
             {
-                case IngredientType.Carrot:
-                    return "ZAN";
-
-                case IngredientType.Potato:
-                    return "PAT";
-
-                case IngredientType.Onion:
-                    return "CEB";
-
-                case IngredientType.Mushroom:
-                    return "SET";
-
-                case IngredientType.Tomato:
-                    return "TOM";
-
-                case IngredientType.Pumpkin:
-                    return "CAL";
-
-                case IngredientType.Corn:
-                    return "MAIZ";
-
-                case IngredientType.Leek:
-                    return "PUE";
-
-                default:
-                    return "?";
+                case IngredientType.Carrot: return "ZAN";
+                case IngredientType.Potato: return "PAT";
+                case IngredientType.Onion: return "CEB";
+                case IngredientType.Mushroom: return "SET";
+                case IngredientType.Tomato: return "TOM";
+                case IngredientType.Pumpkin: return "CAL";
+                case IngredientType.Corn: return "MAIZ";
+                case IngredientType.Leek: return "PUE";
+                default: return "?";
             }
         }
     }
