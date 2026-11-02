@@ -1,18 +1,31 @@
+
 using UnityEngine;
 using TMPro;
+using DuckSoup.Features.Transitions;
 
 namespace DuckSoup.Features.GameFeel.Gameplay
 {
-    // Timer rojo <= 30s y pitch de musica acelerado de forma suave.
     [DisallowMultipleComponent]
     public sealed class TimerMusicFeel : MonoBehaviour
     {
+        [Header("References")]
         [SerializeField] private TMP_Text timerText;
         [SerializeField] private AudioSource musicSource;
-        [SerializeField, Min(0.1f)] private float warningAtSeconds = 30f;
-        [SerializeField] private Color warningColor = new Color(0.95f, 0.18f, 0.20f, 1f);
-        [SerializeField, Range(1f, 2f)] private float fastPitch = 1.18f;
-        [SerializeField, Min(0.05f)] private float pitchTransitionSeconds = 1f;
+        [SerializeField] private SceneMusicFader musicFader;
+
+        [Header("Last 30 Seconds")]
+        [SerializeField, Min(0.1f)]
+        private float warningAtSeconds = 30f;
+
+        [SerializeField]
+        private Color warningColor =
+            new Color(0.95f, 0.18f, 0.20f, 1f);
+
+        [SerializeField, Range(1f, 2f)]
+        private float fastPitch = 1.18f;
+
+        [SerializeField, Min(0.05f)]
+        private float pitchTransitionSeconds = 1f;
 
         private Color normalColor;
         private float originalPitch = 1f;
@@ -21,54 +34,102 @@ namespace DuckSoup.Features.GameFeel.Gameplay
 
         private void Awake()
         {
-            if (timerText != null) normalColor = timerText.color;
-            if (musicSource != null) originalPitch = musicSource.pitch;
+            if (timerText != null)
+                normalColor = timerText.color;
+
+            if (musicSource != null)
+                originalPitch = musicSource.pitch;
+
+            if (musicFader == null)
+                musicFader = GetComponent<SceneMusicFader>();
         }
 
         public void BeginGameplay()
         {
             playing = true;
             warning = false;
-            if (timerText != null) timerText.color = normalColor;
-            if (musicSource != null)
+
+            if (timerText != null)
+                timerText.color = normalColor;
+
+            if (musicSource == null)
+                return;
+
+            musicSource.pitch = originalPitch;
+            musicSource.loop = true;
+
+            if (musicFader != null)
             {
-                musicSource.pitch = originalPitch;
-                musicSource.loop = true;
-                if (musicSource.clip != null && !musicSource.isPlaying)
-                    musicSource.Play();
+                // La musica comienza con fade-in.
+                musicFader.FadeInAndPlay();
+            }
+            else if (musicSource.clip != null &&
+                     !musicSource.isPlaying)
+            {
+                musicSource.Play();
             }
         }
 
         public void RenderRemaining(float seconds)
         {
-            if (!playing) return;
-            warning = seconds <= warningAtSeconds && seconds > 0f;
+            if (!playing)
+                return;
+
+            warning =
+                seconds <= warningAtSeconds &&
+                seconds > 0f;
+
             if (timerText != null)
-                timerText.color = warning ? warningColor : normalColor;
+            {
+                timerText.color =
+                    warning ? warningColor : normalColor;
+            }
         }
 
         private void Update()
         {
-            if (!playing || musicSource == null) return;
-            float target = originalPitch * (warning ? fastPitch : 1f);
-            float speed = (Mathf.Max(0.01f, fastPitch - 1f) * originalPitch) /
-                pitchTransitionSeconds;
+            if (!playing || musicSource == null)
+                return;
+
+            float targetPitch = originalPitch *
+                (warning ? fastPitch : 1f);
+
+            float speed =
+                (Mathf.Max(0.01f, fastPitch - 1f) *
+                 originalPitch) / pitchTransitionSeconds;
+
             musicSource.pitch = Mathf.MoveTowards(
-                musicSource.pitch, target, speed * Time.unscaledDeltaTime);
+                musicSource.pitch,
+                targetPitch,
+                speed * Time.unscaledDeltaTime);
         }
 
         public void EndGameplay()
         {
             playing = false;
             warning = false;
-            if (timerText != null) timerText.color = normalColor;
-            if (musicSource != null)
+
+            if (timerText != null)
+                timerText.color = normalColor;
+
+            if (musicSource == null)
+                return;
+
+            if (musicFader != null)
+            {
+                // Termina suavemente en TIME UP.
+                musicFader.FadeOutAndStop();
+            }
+            else
             {
                 musicSource.pitch = originalPitch;
                 musicSource.Stop();
             }
         }
 
-        private void OnDisable() => EndGameplay();
+        private void OnDisable()
+        {
+            EndGameplay();
+        }
     }
 }

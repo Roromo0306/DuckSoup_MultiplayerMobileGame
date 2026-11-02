@@ -1,5 +1,6 @@
 
 using System.Collections;
+using DuckSoup.Features.Transitions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -7,10 +8,6 @@ using UnityEngine.UI;
 
 namespace DuckSoup.Features.Loading
 {
-    /// <summary>
-    /// Muestra una barra de carga simulada
-    /// mientras prepara el menú principal.
-    /// </summary>
     public sealed class LoadingScreenController : MonoBehaviour
     {
         [Header("Scene")]
@@ -27,31 +24,19 @@ namespace DuckSoup.Features.Loading
         [SerializeField]
         private TextMeshProUGUI loadingText;
 
-        [Header("Timing")]
+        [Header("Fake Loading")]
         [SerializeField, Min(0.1f)]
         private float fakeLoadingDuration = 3f;
 
         [SerializeField, Min(0f)]
         private float completedDelay = 0.3f;
 
-        private void Awake()
-        {
-            // Evita heredar una pausa de una partida anterior.
-            Time.timeScale = 1f;
-
-            if (progressFill != null)
-            {
-                progressFill.type = Image.Type.Filled;
-                progressFill.fillMethod =
-                    Image.FillMethod.Horizontal;
-                progressFill.fillOrigin = 0;
-
-                progressFill.fillAmount = 0f;
-            }
-        }
+        private RectTransform fillRect;
 
         private IEnumerator Start()
         {
+            Time.timeScale = 1f;
+
             if (progressFill == null ||
                 percentageText == null ||
                 loadingText == null)
@@ -63,70 +48,141 @@ namespace DuckSoup.Features.Loading
                 yield break;
             }
 
-            if (!UnityEngine.Application.CanStreamedLevelBeLoaded(mainMenuSceneName))
+            if (!UnityEngine.Application
+                .CanStreamedLevelBeLoaded(mainMenuSceneName))
             {
                 Debug.LogError(
-                    "[Loading] MainMenuScene no está " +
-                    "en Scenes In Build.",
+                    "[Loading] La escena no esta " +
+                    "en Build Settings.",
                     this);
 
                 yield break;
             }
 
-            loadingText.text = "Preparing the kitchen...";
+            // ==================================
+            // CONFIGURAR LA BARRA
+            // ==================================
+
+            fillRect = progressFill.rectTransform;
+
+            progressFill.type = Image.Type.Simple;
+            progressFill.preserveAspect = false;
+
+            fillRect.pivot = new Vector2(0f, 0.5f);
+            fillRect.localScale = Vector3.one;
+
             UpdateProgress(0f);
 
-            // Precargamos la escena sin activarla.
+            loadingText.text =
+                "Preparing the kitchen...";
+
+            // Precargamos el menu sin activarlo.
             AsyncOperation operation =
-                SceneManager.LoadSceneAsync(mainMenuSceneName);
+                SceneManager.LoadSceneAsync(
+                    mainMenuSceneName);
+
+            if (operation == null)
+            {
+                Debug.LogError(
+                    "[Loading] No se pudo cargar el menu.",
+                    this);
+
+                yield break;
+            }
 
             operation.allowSceneActivation = false;
 
             float elapsed = 0f;
 
-            // Esperamos la duración simulada y
-            // a que la escena esté lista.
+            // ==================================
+            // CARGA SIMULADA
+            // ==================================
+
             while (elapsed < fakeLoadingDuration ||
                    operation.progress < 0.9f)
             {
                 elapsed += Time.unscaledDeltaTime;
 
+                // Valor de 0 a 1, calculado
+                // exclusivamente por tiempo.
                 float normalized = Mathf.Clamp01(
                     elapsed / fakeLoadingDuration);
 
-                // Avance visual suave hasta el 95%.
-                float simulatedProgress =
-                    Mathf.SmoothStep(0f, 0.95f, normalized);
+                // Reservamos el ultimo 1% hasta
+                // que la escena este preparada.
+                float progress = Mathf.Min(
+                    normalized,
+                    0.99f);
 
-                UpdateProgress(simulatedProgress);
+                // Un unico valor controla
+                // barra y porcentaje.
+                UpdateProgress(progress);
 
-                if (operation.progress >= 0.9f)
+                if (elapsed >= fakeLoadingDuration &&
+                    operation.progress < 0.9f)
                 {
-                    loadingText.text = "Almost ready...";
+                    loadingText.text =
+                        "Almost ready...";
                 }
 
                 yield return null;
             }
 
+            // ==================================
+            // FINALIZAR AL 100%
+            // ==================================
+
             UpdateProgress(1f);
+
             loadingText.text = "Kitchen ready!";
 
-            yield return new WaitForSecondsRealtime(
-                completedDelay);
+            if (completedDelay > 0f)
+            {
+                yield return new WaitForSecondsRealtime(
+                    completedDelay);
+            }
 
-            // Permitimos activar el menú.
-            operation.allowSceneActivation = true;
+            // ==================================
+            // FUNDIDO Y CAMBIO DE ESCENA
+            // ==================================
+
+            bool fadeStarted =
+                SceneFadeTransition.FadeOutThen(
+                    () =>
+                    {
+                        operation.allowSceneActivation = true;
+                    });
+
+            if (!fadeStarted)
+            {
+                operation.allowSceneActivation = true;
+            }
         }
+
+        // ==================================
+        // SINCRONIZAR BARRA Y PORCENTAJE
+        // ==================================
 
         private void UpdateProgress(float value)
         {
-            float clamped = Mathf.Clamp01(value);
+            float progress = Mathf.Clamp01(value);
 
-            progressFill.fillAmount = clamped;
+            // La anchura visible equivale
+            // exactamente al porcentaje.
+            fillRect.anchorMin = Vector2.zero;
+
+            fillRect.anchorMax = new Vector2(
+                progress, 1f);
+
+            fillRect.offsetMin = Vector2.zero;
+            fillRect.offsetMax = Vector2.zero;
+
+            // Mostramos el mismo progreso.
+            int percentage =
+                Mathf.RoundToInt(progress * 100f);
 
             percentageText.text =
-                Mathf.RoundToInt(clamped * 100f) + "%";
+                percentage + "%";
         }
     }
 }
-

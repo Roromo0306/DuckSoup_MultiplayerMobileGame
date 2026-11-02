@@ -10,6 +10,7 @@ using DuckSoup.Features.SinglePlayer.States;
 using DuckSoup.Features.SinglePlayer.Views;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using DuckSoup.Features.Transitions;
 
 namespace DuckSoup.Bootstrap
 {
@@ -115,15 +116,24 @@ namespace DuckSoup.Bootstrap
             }
         }
 
+
         private void ReturnToMainMenu()
         {
-            if (!UnityEngine.Application.CanStreamedLevelBeLoaded(mainMenuSceneName))
+            if (!UnityEngine.Application
+                .CanStreamedLevelBeLoaded(mainMenuSceneName))
             {
-                Debug.LogError("[1P] MainMenuScene no esta en Build Settings.", this);
+                Debug.LogError(
+                    "[1P] MainMenuScene no esta en Build Settings.",
+                    this);
+
                 return;
             }
-            SceneManager.LoadScene(mainMenuSceneName);
+
+            // El resultado ya se ha guardado
+            // en el estado TIME UP.
+            SceneFadeTransition.LoadScene(mainMenuSceneName);
         }
+
 
         private void OnApplicationPause(bool paused)
         {

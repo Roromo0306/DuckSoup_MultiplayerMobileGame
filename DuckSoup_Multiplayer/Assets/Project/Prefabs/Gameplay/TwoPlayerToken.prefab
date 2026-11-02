@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 5926430334916267178}
   - component: {fileID: 8026813276702710367}
   - component: {fileID: 9100002555700449670}
+  - component: {fileID: 9219971953132068107}
   m_Layer: 5
   m_Name: TwoPlayerToken
   m_TagString: Untagged
@@ -106,6 +107,18 @@ MonoBehaviour:
   art: {fileID: 11400000, guid: d1847e2027a3a2f4599604ddc8e3a252, type: 2}
   tokenBaseImage: {fileID: 5926430334916267178}
   ingredientImage: {fileID: 0}
+--- !u!114 &9219971953132068107
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1334823713771470078}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7064455fa9a8b049a5eb39a0112bca3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &9147586609987305254
 GameObject:
   m_ObjectHideFlags: 0

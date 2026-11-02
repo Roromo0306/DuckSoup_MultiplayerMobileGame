@@ -11,25 +11,26 @@ namespace DuckSoup.Features.Art
     [DisallowMultipleComponent]
     public sealed class RecipeCardArtView : MonoBehaviour
     {
-        [Header("Ingredient art library")]
+        [Header("Ingredient Art")]
         [SerializeField]
         private IngredientArtLibrary ingredients;
 
-        [Header("Card sides")]
+        [Header("Card Sides")]
         [SerializeField]
         private Image frontBackground;
 
         [SerializeField]
         private Image backBackground;
 
-        [Header("Exactly three ingredient images")]
+        [Header("Ingredient Icons")]
         [SerializeField]
         private Image[] ingredientIcons = new Image[3];
 
+        [Header("Completed Checks")]
         [SerializeField]
         private Image[] completedChecks = new Image[3];
 
-        [Header("Visual layout")]
+        [Header("Automatic Layout")]
         [SerializeField]
         private bool arrangeIconsAutomatically = true;
 
@@ -39,9 +40,11 @@ namespace DuckSoup.Features.Art
         [SerializeField, Range(0.15f, 0.32f)]
         private float iconHeightFraction = 0.27f;
 
-        [SerializeField, Range(0.1f, 0.3f)]
-        private float checkWidthFraction = 0.18f;
+        [Header("Check Settings")]
+        [SerializeField, Range(0.5f, 1.5f)]
+        private float checkScale = 1f;
 
+        [Header("Legacy UI")]
         [SerializeField]
         private bool hideLegacyTexts = true;
 
@@ -57,7 +60,9 @@ namespace DuckSoup.Features.Art
         private void Awake()
         {
             if (arrangeIconsAutomatically)
+            {
                 ArrangeVisualElements();
+            }
         }
 
         public void Render(RecipeCardSnapshot snapshot)
@@ -104,7 +109,6 @@ namespace DuckSoup.Features.Art
             if (types.Count != 3)
                 complete = false;
 
-            // Mostramos la cara correspondiente.
             ShowImage(frontBackground, !complete);
             ShowImage(backBackground, complete);
 
@@ -118,8 +122,8 @@ namespace DuckSoup.Features.Art
                         !complete &&
                         i < types.Count &&
                         ingredients != null
-                        ? ingredients.GetRecipe(types[i])
-                        : null;
+                            ? ingredients.GetRecipe(types[i])
+                            : null;
 
                     icon.sprite = sprite;
                     icon.preserveAspect = true;
@@ -173,64 +177,64 @@ namespace DuckSoup.Features.Art
             {
                 Image icon = GetImage(ingredientIcons, i);
 
-                if (icon != null)
-                {
-                    RectTransform rect = icon.rectTransform;
+                if (icon == null)
+                    continue;
 
-                    float halfW =
-                        iconWidthFraction * 0.5f;
+                RectTransform iconRect = icon.rectTransform;
 
-                    float halfH =
-                        iconHeightFraction * 0.5f;
+                float halfWidth =
+                    iconWidthFraction * 0.5f;
 
-                    float y = VerticalCenters[i];
+                float halfHeight =
+                    iconHeightFraction * 0.5f;
 
-                    rect.anchorMin = new Vector2(
-                        0.5f - halfW,
-                        y - halfH);
+                float y = VerticalCenters[i];
 
-                    rect.anchorMax = new Vector2(
-                        0.5f + halfW,
-                        y + halfH);
+                // Posicion del ingrediente.
+                iconRect.anchorMin = new Vector2(
+                    0.5f - halfWidth,
+                    y - halfHeight);
 
-                    rect.offsetMin = Vector2.zero;
-                    rect.offsetMax = Vector2.zero;
+                iconRect.anchorMax = new Vector2(
+                    0.5f + halfWidth,
+                    y + halfHeight);
 
-                    rect.localRotation = Quaternion.identity;
-                    rect.localScale = Vector3.one;
+                iconRect.offsetMin = Vector2.zero;
+                iconRect.offsetMax = Vector2.zero;
 
-                    icon.preserveAspect = true;
-                    icon.raycastTarget = false;
-                }
+                iconRect.localRotation = Quaternion.identity;
+                iconRect.localScale = Vector3.one;
 
+                icon.preserveAspect = true;
+                icon.raycastTarget = false;
+
+                // El tick utiliza exactamente
+                // la misma posicion y dimensiones.
                 Image check = GetImage(completedChecks, i);
 
-                if (check != null)
-                {
-                    RectTransform rect = check.rectTransform;
+                if (check == null)
+                    continue;
 
-                    float halfW =
-                        checkWidthFraction * 0.5f;
+                RectTransform checkRect =
+                    check.rectTransform;
 
-                    float y = VerticalCenters[i] + 0.08f;
+                checkRect.anchorMin = iconRect.anchorMin;
+                checkRect.anchorMax = iconRect.anchorMax;
 
-                    rect.anchorMin = new Vector2(
-                        0.73f - halfW,
-                        y - 0.045f);
+                checkRect.pivot = iconRect.pivot;
 
-                    rect.anchorMax = new Vector2(
-                        0.73f + halfW,
-                        y + 0.045f);
+                checkRect.offsetMin = iconRect.offsetMin;
+                checkRect.offsetMax = iconRect.offsetMax;
 
-                    rect.offsetMin = Vector2.zero;
-                    rect.offsetMax = Vector2.zero;
+                checkRect.localRotation = Quaternion.identity;
 
-                    rect.localRotation = Quaternion.identity;
-                    rect.localScale = Vector3.one;
+                // Podemos modificar ligeramente
+                // el tamaño desde el Inspector.
+                checkRect.localScale =
+                    Vector3.one * checkScale;
 
-                    check.preserveAspect = true;
-                    check.raycastTarget = false;
-                }
+                check.preserveAspect = true;
+                check.raycastTarget = false;
             }
         }
     }

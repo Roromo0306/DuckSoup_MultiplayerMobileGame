@@ -9,6 +9,7 @@ using DuckSoup.Features.TwoPlayer.States;
 using DuckSoup.Features.TwoPlayer.Views;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using DuckSoup.Features.Transitions;
 
 namespace DuckSoup.Bootstrap
 {
@@ -104,15 +105,23 @@ namespace DuckSoup.Bootstrap
             if (oldState != current) Debug.Log($"[2P FSM] {oldState} -> {current}", this);
         }
 
+
         private void ReturnToMainMenu()
         {
-            if (!UnityEngine.Application.CanStreamedLevelBeLoaded(mainMenuSceneName))
+            if (!UnityEngine.Application
+                .CanStreamedLevelBeLoaded(mainMenuSceneName))
             {
-                Debug.LogError("[2P] MainMenuScene no esta en Build Settings.", this);
+                Debug.LogError(
+                    "[2P] MainMenuScene no esta en Build Settings.",
+                    this);
+
                 return;
             }
-            SceneManager.LoadScene(mainMenuSceneName);
+
+            // NEXT vuelve al menu mediante fade.
+            SceneFadeTransition.LoadScene(mainMenuSceneName);
         }
+
 
         private void OnApplicationPause(bool paused)
         {

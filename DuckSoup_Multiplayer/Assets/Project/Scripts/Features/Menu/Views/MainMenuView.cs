@@ -166,6 +166,7 @@ namespace DuckSoup.Features.Menu.Views
         {
             controller.SelectMode(
                 GameMode.SinglePlayer);
+            duckSelector?.Close();
 
             Refresh();
             CloseDrawer();

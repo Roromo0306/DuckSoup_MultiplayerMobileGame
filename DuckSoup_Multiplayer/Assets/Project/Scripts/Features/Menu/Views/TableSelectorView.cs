@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using DuckSoup.Features.GameFeel.UI;
 using DuckSoup.Features.Menu.Contracts;
+using DuckSoup.Features.Transitions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,14 +13,9 @@ namespace DuckSoup.Features.Menu.Views
     [Serializable]
     public sealed class TableDisplayData
     {
-        [SerializeField]
-        private string tableId = "classic_table";
-
-        [SerializeField]
-        private string displayName = "Classic Table";
-
-        [SerializeField]
-        private Sprite previewSprite;
+        [SerializeField] private string tableId = "classic_table";
+        [SerializeField] private string displayName = "Classic Table";
+        [SerializeField] private Sprite previewSprite;
 
         public string Id => tableId;
         public string DisplayName => displayName;
@@ -31,7 +27,7 @@ namespace DuckSoup.Features.Menu.Views
         [Header("Panel")]
         [SerializeField] private GameObject panelRoot;
 
-        [Header("Table information")]
+        [Header("Table Information")]
         [SerializeField] private Image tableImage;
         [SerializeField] private TextMeshProUGUI tableNameText;
         [SerializeField] private TextMeshProUGUI highScoreText;
@@ -41,16 +37,19 @@ namespace DuckSoup.Features.Menu.Views
         [SerializeField] private Button nextButton;
         [SerializeField] private Button closeButton;
 
-        [Header("Normal PLAY button - no hold")]
+        [Header("Normal PLAY Button")]
         [SerializeField] private Button playButton;
 
-        [Header("Available tables")]
+        [Header("Available Tables")]
         [SerializeField]
         private TableDisplayData[] tables =
             new TableDisplayData[0];
 
         [Header("Game Feel")]
         [SerializeField] private UICarouselFeel carouselFeel;
+
+        [Header("Panel Transition")]
+        [SerializeField] private UIPanelTransition panelTransition;
 
         private IPlayerProgressStore progressStore;
         private Action<TableDisplayData> tableConfirmed;
@@ -92,24 +91,29 @@ namespace DuckSoup.Features.Menu.Views
             if (!initialized)
             {
                 Debug.LogError(
-                    "[TableSelector] No inicializado.",
-                    this);
-
+                    "[TableSelector] No inicializado.", this);
                 return;
             }
 
             selectedIndex = 0;
             confirmed = false;
 
-            panelRoot.SetActive(true);
-
             Refresh();
+
+            if (panelTransition != null)
+                panelTransition.Show();
+            else
+                panelRoot.SetActive(true);
+
             carouselFeel?.ResetVisual(true);
         }
 
         public void Hide()
         {
-            panelRoot.SetActive(false);
+            if (panelTransition != null)
+                panelTransition.Hide();
+            else
+                panelRoot.SetActive(false);
         }
 
         private void NextTable()
@@ -124,13 +128,10 @@ namespace DuckSoup.Features.Menu.Views
 
         private void Move(int direction)
         {
-            if (tables.Length < 2 ||
-                confirmed ||
+            if (tables.Length < 2 || confirmed ||
                 (carouselFeel != null &&
                  carouselFeel.IsSwitching))
-            {
                 return;
-            }
 
             if (carouselFeel == null)
             {
@@ -165,9 +166,7 @@ namespace DuckSoup.Features.Menu.Views
                 $"RECIPES";
 
             tableImage.sprite = table.PreviewSprite;
-
-            tableImage.enabled =
-                table.PreviewSprite != null;
+            tableImage.enabled = table.PreviewSprite != null;
 
             bool multipleTables = tables.Length > 1;
 
@@ -182,17 +181,25 @@ namespace DuckSoup.Features.Menu.Views
             if (confirmed ||
                 (carouselFeel != null &&
                  carouselFeel.IsSwitching))
-            {
                 return;
-            }
 
             confirmed = true;
             playButton.interactable = false;
 
             TableDisplayData table = tables[selectedIndex];
 
-            Hide();
-            tableConfirmed?.Invoke(table);
+            // Terminamos la animacion de cierre
+            // ANTES de solicitar el cambio de escena.
+            if (panelTransition != null)
+            {
+                panelTransition.Hide(
+                    () => tableConfirmed?.Invoke(table));
+            }
+            else
+            {
+                Hide();
+                tableConfirmed?.Invoke(table);
+            }
         }
 
         private void ValidateReferences()
@@ -207,18 +214,15 @@ namespace DuckSoup.Features.Menu.Views
                 playButton == null)
             {
                 throw new InvalidOperationException(
-                    "[TableSelector] Faltan referencias " +
-                    "en el Inspector.");
+                    "[TableSelector] Faltan referencias.");
             }
         }
 
         private void ValidateTables()
         {
             if (tables == null || tables.Length == 0)
-            {
                 throw new InvalidOperationException(
                     "[TableSelector] Añade al menos una mesa.");
-            }
 
             var ids = new HashSet<string>(
                 StringComparer.Ordinal);
@@ -231,7 +235,7 @@ namespace DuckSoup.Features.Menu.Views
                     !ids.Add(table.Id.Trim()))
                 {
                     throw new InvalidOperationException(
-                        "[TableSelector] Mesa inválida " +
+                        "[TableSelector] Mesa invalida " +
                         "o ID duplicado.");
                 }
             }
