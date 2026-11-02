@@ -16,7 +16,7 @@ namespace DuckSoup.Features.Loading
 
         [Header("Loading UI")]
         [SerializeField]
-        private Image progressFill;
+        private Slider progressSlider;
 
         [SerializeField]
         private TextMeshProUGUI percentageText;
@@ -31,20 +31,17 @@ namespace DuckSoup.Features.Loading
         [SerializeField, Min(0f)]
         private float completedDelay = 0.3f;
 
-        private RectTransform fillRect;
-
         private IEnumerator Start()
         {
             Time.timeScale = 1f;
 
-            if (progressFill == null ||
+            if (progressSlider == null ||
                 percentageText == null ||
                 loadingText == null)
             {
                 Debug.LogError(
-                    "[Loading] Faltan referencias de UI.",
+                    "[Loading] Faltan referencias.",
                     this);
-
                 yield break;
             }
 
@@ -52,86 +49,62 @@ namespace DuckSoup.Features.Loading
                 .CanStreamedLevelBeLoaded(mainMenuSceneName))
             {
                 Debug.LogError(
-                    "[Loading] La escena no esta " +
+                    "[Loading] MainMenuScene no esta " +
                     "en Build Settings.",
                     this);
-
                 yield break;
             }
 
-            // ==================================
-            // CONFIGURAR LA BARRA
-            // ==================================
+            // Configuramos el Slider normal.
+            progressSlider.minValue = 0f;
+            progressSlider.maxValue = 1f;
+            progressSlider.wholeNumbers = false;
 
-            fillRect = progressFill.rectTransform;
+            progressSlider.transition =
+                Selectable.Transition.None;
 
-            progressFill.type = Image.Type.Simple;
-            progressFill.preserveAspect = false;
-
-            fillRect.pivot = new Vector2(0f, 0.5f);
-            fillRect.localScale = Vector3.one;
+            progressSlider.interactable = false;
 
             UpdateProgress(0f);
 
             loadingText.text =
                 "Preparing the kitchen...";
 
-            // Precargamos el menu sin activarlo.
+            // Preparamos la siguiente escena.
             AsyncOperation operation =
                 SceneManager.LoadSceneAsync(
                     mainMenuSceneName);
 
             if (operation == null)
-            {
-                Debug.LogError(
-                    "[Loading] No se pudo cargar el menu.",
-                    this);
-
                 yield break;
-            }
 
             operation.allowSceneActivation = false;
 
             float elapsed = 0f;
 
-            // ==================================
-            // CARGA SIMULADA
-            // ==================================
-
+            // Carga falsa con tiempo obligatorio.
             while (elapsed < fakeLoadingDuration ||
                    operation.progress < 0.9f)
             {
                 elapsed += Time.unscaledDeltaTime;
 
-                // Valor de 0 a 1, calculado
-                // exclusivamente por tiempo.
-                float normalized = Mathf.Clamp01(
+                float progress = Mathf.Clamp01(
                     elapsed / fakeLoadingDuration);
 
-                // Reservamos el ultimo 1% hasta
-                // que la escena este preparada.
-                float progress = Mathf.Min(
-                    normalized,
-                    0.99f);
-
-                // Un unico valor controla
-                // barra y porcentaje.
-                UpdateProgress(progress);
-
-                if (elapsed >= fakeLoadingDuration &&
-                    operation.progress < 0.9f)
+                // Si la escena real no esta lista,
+                // mantenemos el progreso al 99%.
+                if (operation.progress < 0.9f)
                 {
-                    loadingText.text =
-                        "Almost ready...";
+                    progress = Mathf.Min(
+                        progress, 0.99f);
                 }
+
+                UpdateProgress(progress);
 
                 yield return null;
             }
 
-            // ==================================
-            // FINALIZAR AL 100%
-            // ==================================
-
+            // Barra completa.
             UpdateProgress(1f);
 
             loadingText.text = "Kitchen ready!";
@@ -142,10 +115,7 @@ namespace DuckSoup.Features.Loading
                     completedDelay);
             }
 
-            // ==================================
-            // FUNDIDO Y CAMBIO DE ESCENA
-            // ==================================
-
+            // Fundido antes de activar el menu.
             bool fadeStarted =
                 SceneFadeTransition.FadeOutThen(
                     () =>
@@ -159,30 +129,19 @@ namespace DuckSoup.Features.Loading
             }
         }
 
-        // ==================================
-        // SINCRONIZAR BARRA Y PORCENTAJE
-        // ==================================
-
         private void UpdateProgress(float value)
         {
             float progress = Mathf.Clamp01(value);
 
-            // La anchura visible equivale
-            // exactamente al porcentaje.
-            fillRect.anchorMin = Vector2.zero;
+            // Solo cambiamos el valor del Slider.
+            progressSlider.SetValueWithoutNotify(
+                progress);
 
-            fillRect.anchorMax = new Vector2(
-                progress, 1f);
-
-            fillRect.offsetMin = Vector2.zero;
-            fillRect.offsetMax = Vector2.zero;
-
-            // Mostramos el mismo progreso.
-            int percentage =
-                Mathf.RoundToInt(progress * 100f);
-
+            // El porcentaje usa ese mismo valor.
             percentageText.text =
-                percentage + "%";
+                Mathf.RoundToInt(
+                    progressSlider.normalizedValue * 100f)
+                + "%";
         }
     }
 }

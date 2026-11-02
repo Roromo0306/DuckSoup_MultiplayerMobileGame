@@ -693,7 +693,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   boardView: {fileID: 1434471465}
   gameView: {fileID: 389581804}
-  gameDuration: 60
+  gameDuration: 90
   ingredientRevealSeconds: 3
   recipeReplacementSeconds: 1.5
   tokenRefillSeconds: 1.2
