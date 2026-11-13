@@ -155,7 +155,7 @@ MonoBehaviour:
   progressSlider: {fileID: 1801147265}
   percentageText: {fileID: 1759626117}
   loadingText: {fileID: 1241091712}
-  fakeLoadingDuration: 10
+  fakeLoadingDuration: 1
   completedDelay: 0.3
 --- !u!4 &246965100
 Transform:

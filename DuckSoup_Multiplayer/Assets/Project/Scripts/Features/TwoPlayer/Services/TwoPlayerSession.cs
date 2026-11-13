@@ -158,7 +158,11 @@ namespace DuckSoup.Features.TwoPlayer.Services
             try
             {
                 int p = PlayerIndex(playerId);
-                if (IsTimeUp || p < 0 || IsPlayerLocked(playerId)) return false;
+                if (IsTimeUp || p < 0 ||
+                     IsCardLocked(playerId, cardId))
+                {
+                    return false;
+                }
                 int t = FindToken(tokenId);
                 int c = FindCard(p, cardId);
                 if (t < 0 || c < 0 || recipeTimers[p, c] >= 0f ||

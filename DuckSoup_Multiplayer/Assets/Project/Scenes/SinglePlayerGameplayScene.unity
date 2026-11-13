@@ -694,7 +694,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   powerUpSettings: {fileID: 365768961}
-  powerUpHud: {fileID: 0}
+  powerUpHud: {fileID: 1987251412}
   boardView: {fileID: 1434471465}
   gameView: {fileID: 389581804}
   gameDuration: 90
@@ -726,11 +726,11 @@ MonoBehaviour:
   spawnCheckSeconds: 2.5
   tokenLifetimeSeconds: 10
   maxActiveSpecials: 2
-  noSpecial: 75
-  wildcardDuck: 10
-  poison: 7
-  instantRecipe: 3
-  clock: 5
+  noSpecial: 66
+  wildcardDuck: 12
+  poison: 9
+  instantRecipe: 5
+  clock: 7
 --- !u!1 &372954893
 GameObject:
   m_ObjectHideFlags: 0
@@ -2753,6 +2753,9 @@ MonoBehaviour:
   player2LockText: {fileID: 0}
   feedbackText: {fileID: 629037482}
   feedbackSeconds: 1.2
+  singlePlayerCardsRoot: {fileID: 1455364552}
+  player1CardsRoot: {fileID: 0}
+  player2CardsRoot: {fileID: 0}
 --- !u!1 &2077972856
 GameObject:
   m_ObjectHideFlags: 0
