@@ -1,4 +1,5 @@
 using System;
+using DuckSoup.Features.PowerUps;
 using System.Collections.Generic;
 using DuckSoup.Core.Randomization;
 using DuckSoup.Domain;
@@ -13,7 +14,7 @@ namespace DuckSoup.Features.TwoPlayer.Services
     /// Sesion 2P por tiempo. Una sola mesa, dos manos y reposicion individual.
     /// C# puro: no depende de MonoBehaviour ni de UI.
     /// </summary>
-    public sealed class TwoPlayerSession
+    public sealed partial class TwoPlayerSession
     {
         public const int CardsPerPlayer = 3;
         public const int TokenSlots = 18;
@@ -118,7 +119,7 @@ namespace DuckSoup.Features.TwoPlayer.Services
         {
             for (int i = 0; i < TokenSlots; i++)
             {
-                if (tokens[i] != null) yield return tokens[i].Ingredient;
+                if (tokens[i] != null && specialKinds[i] == PowerTokenKind.None) yield return tokens[i].Ingredient;
                 else if (refillTimers[i] >= 0f) yield return pendingIngredients[i];
             }
         }
@@ -157,10 +158,11 @@ namespace DuckSoup.Features.TwoPlayer.Services
             try
             {
                 int p = PlayerIndex(playerId);
-                if (IsTimeUp || p < 0) return false;
+                if (IsTimeUp || p < 0 || IsPlayerLocked(playerId)) return false;
                 int t = FindToken(tokenId);
                 int c = FindCard(p, cardId);
-                if (t < 0 || c < 0 || recipeTimers[p, c] >= 0f) return false;
+                if (t < 0 || c < 0 || recipeTimers[p, c] >= 0f ||
+                    specialKinds[t] != PowerTokenKind.None) return false;
 
                 IngredientToken token = tokens[t];
                 RecipeCardModel card = cards[p, c];
@@ -178,9 +180,8 @@ namespace DuckSoup.Features.TwoPlayer.Services
 
                 if (card.IsComplete)
                 {
-                    scores[p]++;
+                    RegisterCompletedCard(p, c);
                     recipeCompleted = true;
-                    recipeTimers[p, c] = recipeSeconds;
                 }
                 return true;
             }
@@ -293,6 +294,7 @@ namespace DuckSoup.Features.TwoPlayer.Services
                     changed = true;
                 }
             }
+            changed |= AdvancePowerUps(deltaTime);
             return changed;
         }
 

@@ -1,76 +1,76 @@
-
+using DuckSoup.Features.PowerUps;
 using DuckSoup.Features.Round.Contracts;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace DuckSoup.Features.Art
 {
+    // Both ingredients and power-ups are drawn by the SAME existing token prefab.
     [DisallowMultipleComponent]
     public sealed class TokenArtView : MonoBehaviour
     {
-        [Header("Ingredient Art")]
-        [SerializeField]
-        private IngredientArtLibrary art;
+        [SerializeField] private IngredientArtLibrary art;
+        [SerializeField] private Image tokenBaseImage;
+        [SerializeField] private Image ingredientImage;
 
-        [Header("Token Image")]
-        [SerializeField]
-        private Image tokenBaseImage;
-
-        // Solo para mantener compatibilidad
-        // con prefabs anteriores.
-        // Debe quedarse sin asignar.
-        [SerializeField]
-        private Image ingredientImage;
-
-        public bool IsConfigured => art != null;
+        [Header("Power-up FRONT sprites (only required on gameplay token prefabs)")]
+        [SerializeField] private Sprite wildcardDuck;
+        [SerializeField] private Sprite poison;
+        [SerializeField] private Sprite completeRecipe;
+        [SerializeField] private Sprite extraTime;
 
         private void Awake()
         {
-            if (tokenBaseImage == null)
-            {
-                tokenBaseImage = GetComponent<Image>();
-            }
-
-            if (ingredientImage != null)
-            {
-                ingredientImage.enabled = false;
-                ingredientImage.raycastTarget = false;
-            }
+            if (tokenBaseImage == null) tokenBaseImage = GetComponent<Image>();
+            if (ingredientImage != null) ingredientImage.raycastTarget = false;
         }
+
+        public bool IsConfigured { get { return art != null; } }
 
         public void Render(IngredientTokenSnapshot token)
         {
-            if (art == null || tokenBaseImage == null)
-                return;
+            Render(token, PowerTokenKind.None);
+        }
 
-            // Desactivamos cualquier imagen antigua.
-            if (ingredientImage != null)
-            {
-                ingredientImage.enabled = false;
-            }
+        public void Render(IngredientTokenSnapshot token, PowerTokenKind kind)
+        {
+            if (tokenBaseImage == null || art == null) return;
+            bool visible = token != null && !token.IsConsumed;
+            tokenBaseImage.enabled = visible;
+            if (ingredientImage != null) ingredientImage.enabled = false;
+            if (!visible) return;
 
-            // Si el espacio está vacío,
-            // no mostramos ninguna ficha.
-            if (token == null || token.IsConsumed)
-            {
-                tokenBaseImage.enabled = false;
-                return;
-            }
-
-            tokenBaseImage.enabled = true;
             tokenBaseImage.color = Color.white;
-            tokenBaseImage.preserveAspect = true;
-
-            if (token.IsRevealed)
+            bool revealed = token.IsRevealed;
+            if (revealed && kind != PowerTokenKind.None)
             {
-                // La cara delantera ES el ingrediente.
-                tokenBaseImage.sprite =
-                    art.Get(token.VisibleIngredient);
+                tokenBaseImage.sprite = SpecialSprite(kind);
+                tokenBaseImage.preserveAspect = true;
+                if (tokenBaseImage.sprite == null)
+                    Debug.LogWarning("Missing power-up Sprite: " + kind, this);
+                return;
             }
-            else
+
+            tokenBaseImage.sprite = revealed && art.TokenFrontBackground != null
+                ? art.TokenFrontBackground : art.TokenBack;
+            if (ingredientImage != null && revealed)
             {
-                // Reverso común para todos.
-                tokenBaseImage.sprite = art.TokenBack;
+                ingredientImage.sprite = art.Get(token.VisibleIngredient);
+                ingredientImage.color = Color.white;
+                ingredientImage.preserveAspect = true;
+                ingredientImage.enabled = ingredientImage.sprite != null;
+            }
+        }
+
+        private Sprite SpecialSprite(PowerTokenKind kind)
+        {
+            switch (kind)
+            {
+                case PowerTokenKind.WildcardDuck: return wildcardDuck;
+                case PowerTokenKind.Poison: return poison;
+                case PowerTokenKind.CompleteRecipe: return completeRecipe;
+                case PowerTokenKind.ExtraComboTime: return extraTime;
+                default: return null;
             }
         }
     }

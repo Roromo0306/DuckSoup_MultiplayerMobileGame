@@ -1,4 +1,5 @@
 using System;
+using DuckSoup.Features.PowerUps;
 using DuckSoup.Features.GameFeel.UI;
 using DuckSoup.Features.Art;
 using DuckSoup.Features.Round.Contracts;
@@ -59,7 +60,8 @@ namespace DuckSoup.Features.TwoPlayer.Views
                 throw new InvalidOperationException("Asigna IngredientText o TokenArtView al prefab.");
         }
 
-        public void Refresh(IngredientTokenSnapshot snapshot)
+        public void Refresh(IngredientTokenSnapshot snapshot,
+            PowerTokenKind power = PowerTokenKind.None)
         {
             if (snapshot == null)
             {
@@ -68,7 +70,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
                 image.enabled = false;
                 image.raycastTarget = false;
                 SetLabel("");
-                art?.Render(snapshot);
+                art?.Render(snapshot, power);
                 return;
             }
 
@@ -90,14 +92,16 @@ namespace DuckSoup.Features.TwoPlayer.Views
             else if (snapshot.IsRevealed)
             {
                 image.color = new Color(0.95f, 0.72f, 0.35f);
-                SetLabel(LabelFor(snapshot.VisibleIngredient));
+                SetLabel(power == PowerTokenKind.None
+                    ? LabelFor(snapshot.VisibleIngredient)
+                    : PowerName(power));
             }
             else
             {
                 image.color = new Color(0.60f, 0.37f, 0.19f);
                 SetLabel("?");
             }
-            art?.Render(snapshot);
+            art?.Render(snapshot, power);
         }
 
         private void SetLabel(string value)
@@ -109,7 +113,8 @@ namespace DuckSoup.Features.TwoPlayer.Views
         {
             if (held || returning || board == null || string.IsNullOrEmpty(TokenId) ||
                 data.button != PointerEventData.InputButton.Left) return;
-            if (!board.TryBeginToken(TokenId, data.pointerId)) return;
+            if (!board.CanTouchAt(data.position)) return;
+            if (!board.TryBeginToken(TokenId, data.pointerId, data.position)) return;
             ownerPointerId = data.pointerId;
             held = true;
 
@@ -234,6 +239,18 @@ namespace DuckSoup.Features.TwoPlayer.Views
         private void OnDisable() => ForceCancel();
         private void OnApplicationPause(bool paused) { if (paused) ForceCancel(); }
         private void OnApplicationFocus(bool focus) { if (!focus) ForceCancel(); }
+
+        private static string PowerName(PowerTokenKind kind)
+        {
+            switch (kind)
+            {
+                case PowerTokenKind.WildcardDuck: return "DUCK";
+                case PowerTokenKind.Poison: return "POISON";
+                case PowerTokenKind.CompleteRecipe: return "RECIPE";
+                case PowerTokenKind.ExtraComboTime: return "+TIME";
+                default: return "?";
+            }
+        }
 
         private static string LabelFor(IngredientType type)
         {

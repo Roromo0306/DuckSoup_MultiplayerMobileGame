@@ -1,89 +1,45 @@
-
 using System;
 using DuckSoup.Features.Menu.Contracts;
 using UnityEngine;
 
 namespace DuckSoup.Features.Menu.Services
 {
-    /// <summary>
-    /// Guarda los resultados individuales
-    /// mediante PlayerPrefs.
-    /// </summary>
-    public sealed class PlayerPrefsProgressStore :
-        IPlayerProgressStore
+    public sealed class PlayerPrefsProgressStore : IPlayerProgressStore
     {
-        private const string TotalRecipesKey =
-            "DuckSoup_1P_TotalRecipes";
+        private const string TotalRecipesKey = "DuckSoup_1P_TotalRecipes";
+        private const string HighScorePrefix = "DuckSoup_1P_HighScore_";
 
-        private const string HighScorePrefix =
-            "DuckSoup_1P_HighScore_";
+        public int GetTotalRecipesCompleted() =>
+            PlayerPrefs.GetInt(TotalRecipesKey, 0);
 
-        public int GetTotalRecipesCompleted()
-        {
-            return PlayerPrefs.GetInt(
-                TotalRecipesKey, 0);
-        }
+        public int GetTableHighScore(string tableId) =>
+            PlayerPrefs.GetInt(HighScorePrefix + ValidId(tableId), 0);
 
-        public int GetTableHighScore(string tableId)
-        {
-            return PlayerPrefs.GetInt(
-                GetHighScoreKey(tableId), 0);
-        }
+        // Keeps the old interface and all legacy callers working.
+        public void RegisterSinglePlayerRun(string tableId, int completedRecipes) =>
+            RegisterSinglePlayerRun(tableId, completedRecipes, completedRecipes);
 
-        /// <summary>
-        /// Se llamará una única vez al finalizar
-        /// una partida individual.
-        ///
-        /// Aumenta el total de recetas y guarda
-        /// el mejor resultado de la mesa.
-        /// </summary>
+        // Physical recipe count and combo-weighted score are deliberately different.
         public void RegisterSinglePlayerRun(
-            string tableId,
-            int completedRecipes)
+            string tableId, int completedRecipes, int score)
         {
-            string highScoreKey =
-                GetHighScoreKey(tableId);
-
-            if (completedRecipes < 0)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(completedRecipes));
-            }
-
-            int previousTotal =
-                GetTotalRecipesCompleted();
-
-            int newTotal = checked(
-                previousTotal + completedRecipes);
-
-            int previousHighScore =
-                PlayerPrefs.GetInt(highScoreKey, 0);
-
-            PlayerPrefs.SetInt(
-                TotalRecipesKey,
-                newTotal);
-
-            if (completedRecipes > previousHighScore)
-            {
-                PlayerPrefs.SetInt(
-                    highScoreKey,
-                    completedRecipes);
-            }
-
+            tableId = ValidId(tableId);
+            if (completedRecipes < 0 || score < 0)
+                throw new ArgumentOutOfRangeException("Score and recipes must be nonnegative.");
+            int previous = GetTotalRecipesCompleted();
+            int total = checked(previous + completedRecipes);
+            PlayerPrefs.SetInt(TotalRecipesKey, total);
+            int highscore = GetTableHighScore(tableId);
+            if (score > highscore)
+                PlayerPrefs.SetInt(HighScorePrefix + tableId, score);
             PlayerPrefs.Save();
         }
 
-        private static string GetHighScoreKey(
-            string tableId)
+        private static string ValidId(string id)
         {
-            if (string.IsNullOrWhiteSpace(tableId))
-            {
-                throw new ArgumentException(
-                    "La mesa necesita un ID válido.",
-                    nameof(tableId));
-            }
-
-            return HighScorePrefix + tableId.Trim();
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Table id cannot be empty.", nameof(id));
+            return id.Trim();
         }
     }
 }

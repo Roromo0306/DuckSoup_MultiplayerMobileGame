@@ -53,6 +53,34 @@ namespace DuckSoup.Features.GameFeel.UI
             mainAnimation = StartCoroutine(CompleteRoutine());
         }
 
+        // Combo version: lift + pop, then keep the completed card BACK visible
+        // until the shared combo window expires. Preserves feedback and readability.
+        public void CelebrateCombo()
+        {
+            StopAnimations();
+            mainAnimation = StartCoroutine(ComboRoutine());
+        }
+
+        private IEnumerator ComboRoutine()
+        {
+            float elapsed = 0f;
+            const float seconds = 0.55f;
+            while (elapsed < seconds)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / seconds);
+                float wave = Mathf.Sin(t * Mathf.PI);
+                visualRoot.localPosition = restingLocalPosition + Vector3.up * (25f * wave);
+                visualRoot.localScale = restingScale * (1f + 0.10f * wave);
+                canvasGroup.alpha = 1f - 0.15f * wave;
+                yield return null;
+            }
+            visualRoot.localPosition = restingLocalPosition;
+            visualRoot.localScale = restingScale;
+            canvasGroup.alpha = 1f;
+            mainAnimation = null;
+        }
+
         public void ShakeWrong()
         {
             if (mainAnimation != null || canvasGroup.alpha < 0.95f) return;

@@ -1,4 +1,5 @@
 using System;
+using DuckSoup.Features.PowerUps;
 using DuckSoup.Features.Art;
 using DuckSoup.Features.Conveyor;
 using DuckSoup.Features.GameFeel.UI;
@@ -65,7 +66,8 @@ namespace DuckSoup.Features.SinglePlayer.Views
                     "Asigna IngredientText o TokenArtView.");
         }
 
-        public void Refresh(IngredientTokenSnapshot snapshot)
+        public void Refresh(IngredientTokenSnapshot snapshot,
+            PowerTokenKind power = PowerTokenKind.None)
         {
             if (snapshot == null)
             {
@@ -73,7 +75,7 @@ namespace DuckSoup.Features.SinglePlayer.Views
                 backgroundImage.enabled = false;
                 backgroundImage.raycastTarget = false;
                 SetLabel("");
-                art?.Render(snapshot);
+                art?.Render(snapshot, power);
                 return;
             }
 
@@ -84,7 +86,9 @@ namespace DuckSoup.Features.SinglePlayer.Views
 
             if (snapshot.IsRevealed)
             {
-                SetLabel(GetIngredientLabel(snapshot.VisibleIngredient));
+                SetLabel(power == PowerTokenKind.None
+                    ? GetIngredientLabel(snapshot.VisibleIngredient)
+                    : PowerName(power));
                 backgroundImage.color =
                     new Color(0.95f, 0.72f, 0.35f);
             }
@@ -95,7 +99,7 @@ namespace DuckSoup.Features.SinglePlayer.Views
                     new Color(0.60f, 0.37f, 0.19f);
             }
 
-            art?.Render(snapshot);
+            art?.Render(snapshot, power);
         }
 
         private void SetLabel(string value)
@@ -300,6 +304,18 @@ namespace DuckSoup.Features.SinglePlayer.Views
         {
             if (!hasFocus)
                 ForceCancel();
+        }
+
+        private static string PowerName(PowerTokenKind kind)
+        {
+            switch (kind)
+            {
+                case PowerTokenKind.WildcardDuck: return "DUCK";
+                case PowerTokenKind.Poison: return "POISON";
+                case PowerTokenKind.CompleteRecipe: return "RECIPE";
+                case PowerTokenKind.ExtraComboTime: return "+TIME";
+                default: return "?";
+            }
         }
 
         private static string GetIngredientLabel(IngredientType type)

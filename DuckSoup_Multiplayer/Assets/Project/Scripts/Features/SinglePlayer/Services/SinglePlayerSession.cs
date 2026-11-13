@@ -1,4 +1,5 @@
 using System;
+using DuckSoup.Features.PowerUps;
 using System.Collections.Generic;
 using DuckSoup.Core.Randomization;
 using DuckSoup.Features.Procedural;
@@ -9,7 +10,7 @@ using DuckSoup.Features.SinglePlayer.Models;
 namespace DuckSoup.Features.SinglePlayer.Services
 {
     // Modo 1P: 15 fichas, 3 recetas procedurales, rellenado individual.
-    public sealed class SinglePlayerSession
+    public sealed partial class SinglePlayerSession
     {
         public const int RecipeSlots = 3;
         public const int TokenSlots = 15;
@@ -23,6 +24,7 @@ namespace DuckSoup.Features.SinglePlayer.Services
         private readonly Dictionary<string, int> tokenOwners = new Dictionary<string, int>();
         private readonly Dictionary<int, string> pointerTokens = new Dictionary<int, string>();
         private readonly AvailableRecipeGenerator generator;
+        private readonly IRandomSource random;
         private readonly float revealSeconds;
         private readonly float refillSeconds;
         private readonly float recipeSeconds;
@@ -49,6 +51,7 @@ namespace DuckSoup.Features.SinglePlayer.Services
             CheckPositive(revealSeconds, nameof(revealSeconds));
             CheckPositive(recipeReplacementSeconds, nameof(recipeReplacementSeconds));
             CheckPositive(tokenRefillSeconds, nameof(tokenRefillSeconds));
+            random = randomSource;
             generator = new AvailableRecipeGenerator(randomSource);
             this.revealSeconds = revealSeconds;
             recipeSeconds = recipeReplacementSeconds;
@@ -93,7 +96,7 @@ namespace DuckSoup.Features.SinglePlayer.Services
         {
             for (int i = 0; i < TokenSlots; i++)
             {
-                if (tokens[i] != null) yield return tokens[i].Ingredient;
+                if (tokens[i] != null && specialKinds[i] == PowerTokenKind.None) yield return tokens[i].Ingredient;
                 else if (refillTimers[i] >= 0f) yield return pendingIngredients[i];
             }
         }
@@ -145,7 +148,8 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 if (IsTimeUp) return false;
                 int t = FindToken(tokenId);
                 int c = FindCard(cardId);
-                if (t < 0 || c < 0 || recipeTimers[c] >= 0f) return false;
+                if (t < 0 || c < 0 || recipeTimers[c] >= 0f ||
+                    specialKinds[t] != PowerTokenKind.None) return false;
                 IngredientToken token = tokens[t];
                 RecipeCardModel card = cards[c];
                 if (!token.IsRevealed || token.IsConsumed ||
@@ -160,9 +164,8 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 refillTimers[t] = refillSeconds;
                 if (card.IsComplete)
                 {
-                    CompletedRecipes++;
+                    RegisterCompletedCard(c);
                     recipeCompleted = true;
-                    recipeTimers[c] = recipeSeconds;
                 }
                 return true;
             }
@@ -238,6 +241,7 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 recipeTimers[c] = -1f;
                 changed = true;
             }
+            changed |= AdvancePowerUps(deltaTime);
             return changed;
         }
 

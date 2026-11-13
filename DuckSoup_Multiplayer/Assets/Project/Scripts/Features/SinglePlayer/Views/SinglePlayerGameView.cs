@@ -71,10 +71,10 @@ namespace DuckSoup.Features.SinglePlayer.Views
             int remaining = Mathf.CeilToInt(Mathf.Max(0f, seconds));
             timerText.text = $"{remaining / 60:00}:{remaining % 60:00}";
             if (scoreNumber == null)
-                scoreText.text = "RECIPES: " + recipes;
+                scoreText.text = "SCORE: " + recipes;
             else
             {
-                scoreText.text = "RECIPES";
+                scoreText.text = "SCORE";
                 scoreNumber.Show(recipes);
             }
             if (timerMusic != null) timerMusic.RenderRemaining(seconds);

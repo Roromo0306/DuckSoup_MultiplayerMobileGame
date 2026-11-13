@@ -106,6 +106,10 @@ MonoBehaviour:
   art: {fileID: 11400000, guid: d1847e2027a3a2f4599604ddc8e3a252, type: 2}
   tokenBaseImage: {fileID: 5926430334916267178}
   ingredientImage: {fileID: 0}
+  wildcardDuck: {fileID: 21300000, guid: be0b47316ee4deb408d9364ee8eaa30d, type: 3}
+  poison: {fileID: 0}
+  completeRecipe: {fileID: 0}
+  extraTime: {fileID: 0}
 --- !u!1 &9147586609987305254
 GameObject:
   m_ObjectHideFlags: 0
