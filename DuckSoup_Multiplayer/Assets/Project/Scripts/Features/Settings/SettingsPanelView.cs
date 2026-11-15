@@ -1,4 +1,4 @@
-
+using System;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UI;
@@ -30,7 +30,20 @@ namespace DuckSoup.Features.Settings
         [SerializeField] private UIPanelTransition settingsTransition;
         [SerializeField] private UIPanelTransition creditsTransition;
 
+        [Header("Single-player pause only")]
+        [SerializeField] private Button returnToMenuButton;
+        [SerializeField] private GameObject returnConfirmationPanel;
+        [SerializeField] private Button confirmReturnYesButton;
+        [SerializeField] private Button confirmReturnNoButton;
+        [SerializeField] private UIPanelTransition returnConfirmationTransition;
+
+        private enum PanelState { Closed, Settings, Credits, ConfirmReturn, Transitioning, Leaving }
+
         private AudioSettingsService service;
+        private PanelState state;
+        private Func<bool> tryPause;
+        private Action resumeAfterClose;
+        private Func<bool> tryReturnToMenu;
         private bool initialized;
 
         private void Awake()
@@ -54,8 +67,14 @@ namespace DuckSoup.Features.Settings
                 return;
             }
 
-            // Compatible con el servicio que ya tienes.
             service = new AudioSettingsService(audioMixer);
+
+            if (settingsTransition == null)
+                settingsTransition = settingsPanel.GetComponent<UIPanelTransition>();
+            if (creditsTransition == null)
+                creditsTransition = creditsPanel.GetComponent<UIPanelTransition>();
+            if (returnConfirmationTransition == null && returnConfirmationPanel != null)
+                returnConfirmationTransition = returnConfirmationPanel.GetComponent<UIPanelTransition>();
 
             settingsOpenButton.onClick.AddListener(OpenSettings);
             settingsCloseButton.onClick.AddListener(CloseSettings);
@@ -65,6 +84,18 @@ namespace DuckSoup.Features.Settings
 
             settingsPanel.SetActive(false);
             creditsPanel.SetActive(false);
+            if (returnConfirmationPanel != null)
+                returnConfirmationPanel.SetActive(false);
+
+            if (returnToMenuButton != null)
+            {
+                returnToMenuButton.onClick.AddListener(OpenReturnConfirmation);
+                returnToMenuButton.gameObject.SetActive(false);
+            }
+            if (confirmReturnYesButton != null)
+                confirmReturnYesButton.onClick.AddListener(ConfirmReturnToMenu);
+            if (confirmReturnNoButton != null)
+                confirmReturnNoButton.onClick.AddListener(CancelReturnToMenu);
 
             initialized = true;
         }
@@ -78,28 +109,57 @@ namespace DuckSoup.Features.Settings
             ConfigureSlider(musicSlider, service.Music);
             ConfigureSlider(sfxSlider, service.Sfx);
 
-            masterSlider.onValueChanged.AddListener(
-                OnMasterChanged);
-
-            musicSlider.onValueChanged.AddListener(
-                OnMusicChanged);
-
-            sfxSlider.onValueChanged.AddListener(
-                OnSfxChanged);
+            masterSlider.onValueChanged.AddListener(OnMasterChanged);
+            musicSlider.onValueChanged.AddListener(OnMusicChanged);
+            sfxSlider.onValueChanged.AddListener(OnSfxChanged);
 
             service.Apply();
         }
 
-        private static void ConfigureSlider(
-            Slider slider,
-            float value)
+        public void BindPause(Func<bool> pause, Action resume, Func<bool> returnToMenu)
+        {
+            SetOpenButtonAvailable(false);
+            if (!initialized) return;
+
+            tryPause = pause;
+            resumeAfterClose = resume;
+            tryReturnToMenu = returnToMenu;
+
+            if (returnToMenuButton == null)
+            {
+                Debug.LogError("[Settings] Asigna Return To Menu Button en la escena 1P.", this);
+                return;
+            }
+
+            bool confirmationReady = returnConfirmationPanel != null &&
+                confirmReturnYesButton != null && confirmReturnNoButton != null;
+            returnToMenuButton.gameObject.SetActive(true);
+            returnToMenuButton.interactable = confirmationReady;
+            if (!confirmationReady)
+                Debug.LogError("[Settings] Asigna el panel de confirmacion y sus botones Yes y No.", this);
+        }
+
+        public void SetOpenButtonAvailable(bool available)
+        {
+            if (settingsOpenButton != null)
+                settingsOpenButton.interactable = available && isActiveAndEnabled;
+        }
+
+        public void ResetPausePanel()
+        {
+            SetOpenButtonAvailable(false);
+            state = PanelState.Closed;
+            if (settingsPanel != null) settingsPanel.SetActive(false);
+            if (creditsPanel != null) creditsPanel.SetActive(false);
+            if (returnConfirmationPanel != null) returnConfirmationPanel.SetActive(false);
+        }
+
+        private static void ConfigureSlider(Slider slider, float value)
         {
             slider.minValue = 0f;
             slider.maxValue = 1f;
             slider.wholeNumbers = false;
-
-            slider.SetValueWithoutNotify(
-                Mathf.Clamp01(value));
+            slider.SetValueWithoutNotify(Mathf.Clamp01(value));
         }
 
         private void OnMasterChanged(float value)
@@ -119,64 +179,96 @@ namespace DuckSoup.Features.Settings
 
         public void OpenSettings()
         {
-            CloseCreditsPanel(ShowSettingsPanel);
+            if (!initialized || !isActiveAndEnabled || state != PanelState.Closed) return;
+            if (tryPause != null && !tryPause()) return;
+
+            state = PanelState.Settings;
+            ShowPanel(settingsPanel, settingsTransition);
         }
 
         public void CloseSettings()
         {
-            CloseSettingsPanel(null);
+            if (state != PanelState.Settings) return;
+
+            state = PanelState.Transitioning;
+            HidePanel(settingsPanel, settingsTransition, ResumeAfterPanelCloses);
         }
 
         public void OpenCredits()
         {
-            CloseSettingsPanel(ShowCreditsPanel);
+            if (state != PanelState.Settings) return;
+
+            state = PanelState.Transitioning;
+            HidePanel(settingsPanel, settingsTransition, () =>
+            {
+                state = PanelState.Credits;
+                ShowPanel(creditsPanel, creditsTransition);
+            });
         }
 
         public void CloseCredits()
         {
-            CloseCreditsPanel(ShowSettingsPanel);
-        }
+            if (state != PanelState.Credits) return;
 
-        private void ShowSettingsPanel()
-        {
-            if (settingsTransition != null)
-                settingsTransition.Show();
-            else
-                settingsPanel.SetActive(true);
-        }
-
-        private void ShowCreditsPanel()
-        {
-            if (creditsTransition != null)
-                creditsTransition.Show();
-            else
-                creditsPanel.SetActive(true);
-        }
-
-        private void CloseSettingsPanel(
-            System.Action afterClose)
-        {
-            if (settingsTransition != null)
+            state = PanelState.Transitioning;
+            HidePanel(creditsPanel, creditsTransition, () =>
             {
-                settingsTransition.Hide(afterClose);
+                state = PanelState.Settings;
+                ShowPanel(settingsPanel, settingsTransition);
+            });
+        }
+
+        private void OpenReturnConfirmation()
+        {
+            if (state != PanelState.Settings || tryReturnToMenu == null) return;
+
+            state = PanelState.Transitioning;
+            HidePanel(settingsPanel, settingsTransition, () =>
+            {
+                state = PanelState.ConfirmReturn;
+                ShowPanel(returnConfirmationPanel, returnConfirmationTransition);
+            });
+        }
+
+        private void ConfirmReturnToMenu()
+        {
+            if (state != PanelState.ConfirmReturn) return;
+
+            state = PanelState.Leaving;
+            if (!tryReturnToMenu()) state = PanelState.ConfirmReturn;
+        }
+
+        private void CancelReturnToMenu()
+        {
+            if (state != PanelState.ConfirmReturn) return;
+
+            state = PanelState.Transitioning;
+            HidePanel(returnConfirmationPanel, returnConfirmationTransition, ResumeAfterPanelCloses);
+        }
+
+        private void ResumeAfterPanelCloses()
+        {
+            state = PanelState.Closed;
+            resumeAfterClose?.Invoke();
+        }
+
+        private static void ShowPanel(GameObject panel, UIPanelTransition transition)
+        {
+            if (transition != null && transition.enabled)
+                transition.Show();
+            else
+                panel.SetActive(true);
+        }
+
+        private static void HidePanel(GameObject panel, UIPanelTransition transition, Action afterClose)
+        {
+            if (transition != null && transition.enabled)
+            {
+                transition.Hide(afterClose);
             }
             else
             {
-                settingsPanel.SetActive(false);
-                afterClose?.Invoke();
-            }
-        }
-
-        private void CloseCreditsPanel(
-            System.Action afterClose)
-        {
-            if (creditsTransition != null)
-            {
-                creditsTransition.Hide(afterClose);
-            }
-            else
-            {
-                creditsPanel.SetActive(false);
+                panel.SetActive(false);
                 afterClose?.Invoke();
             }
         }
@@ -186,27 +278,27 @@ namespace DuckSoup.Features.Settings
             if (!initialized)
                 return;
 
-            masterSlider.onValueChanged.RemoveListener(
-                OnMasterChanged);
+            if (masterSlider != null)
+                masterSlider.onValueChanged.RemoveListener(OnMasterChanged);
+            if (musicSlider != null)
+                musicSlider.onValueChanged.RemoveListener(OnMusicChanged);
+            if (sfxSlider != null)
+                sfxSlider.onValueChanged.RemoveListener(OnSfxChanged);
 
-            musicSlider.onValueChanged.RemoveListener(
-                OnMusicChanged);
-
-            sfxSlider.onValueChanged.RemoveListener(
-                OnSfxChanged);
-
-            settingsOpenButton.onClick.RemoveListener(
-                OpenSettings);
-
-            settingsCloseButton.onClick.RemoveListener(
-                CloseSettings);
-
-            creditsOpenButton.onClick.RemoveListener(
-                OpenCredits);
-
-            creditsCloseButton.onClick.RemoveListener(
-                CloseCredits);
+            if (settingsOpenButton != null)
+                settingsOpenButton.onClick.RemoveListener(OpenSettings);
+            if (settingsCloseButton != null)
+                settingsCloseButton.onClick.RemoveListener(CloseSettings);
+            if (creditsOpenButton != null)
+                creditsOpenButton.onClick.RemoveListener(OpenCredits);
+            if (creditsCloseButton != null)
+                creditsCloseButton.onClick.RemoveListener(CloseCredits);
+            if (returnToMenuButton != null)
+                returnToMenuButton.onClick.RemoveListener(OpenReturnConfirmation);
+            if (confirmReturnYesButton != null)
+                confirmReturnYesButton.onClick.RemoveListener(ConfirmReturnToMenu);
+            if (confirmReturnNoButton != null)
+                confirmReturnNoButton.onClick.RemoveListener(CancelReturnToMenu);
         }
     }
 }
-

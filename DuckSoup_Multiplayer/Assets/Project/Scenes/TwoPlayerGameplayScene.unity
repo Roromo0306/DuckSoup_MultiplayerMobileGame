@@ -334,6 +334,43 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &247697608
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 247697609}
+  m_Layer: 5
+  m_Name: ResultsFX
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &247697609
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 247697608}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1445073639}
+  - {fileID: 753281710}
+  m_Father: {fileID: 1160617633}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &254876600
 GameObject:
   m_ObjectHideFlags: 0
@@ -798,6 +835,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 697236965}
+  - {fileID: 703200641}
   - {fileID: 1891161786}
   - {fileID: 1573240860}
   - {fileID: 613329927}
@@ -982,7 +1020,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &618489144
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1286,7 +1324,7 @@ GameObject:
   - component: {fileID: 697236967}
   - component: {fileID: 697236966}
   m_Layer: 5
-  m_Name: Image
+  m_Name: BackgroundClassic
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1443,6 +1481,152 @@ MonoBehaviour:
   beltExtraHeight: 26
   countdownOrTimeUpOverlay: {fileID: 2117154811}
   resultsPanel: {fileID: 1577888482}
+  classicBackground: {fileID: 697236964}
+  conveyorBackground: {fileID: 703200640}
+--- !u!1 &703200640
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 703200641}
+  - component: {fileID: 703200643}
+  - component: {fileID: 703200642}
+  m_Layer: 5
+  m_Name: BackgroundConveyot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &703200641
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 703200640}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 554150453}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &703200642
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 703200640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 21300000, guid: 46ba949c2f218af4c857e5545b056815, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &703200643
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 703200640}
+  m_CullTransparentMesh: 1
+--- !u!1 &753281709
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 753281710}
+  - component: {fileID: 753281711}
+  m_Layer: 5
+  m_Name: RainP2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &753281710
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 753281709}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 247697609}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: -480}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &753281711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 753281709}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f4a4305dafda2d4fa75250b337f053d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  area: {fileID: 1268822001}
+  renderRoot: {fileID: 247697609}
+  invertFallDirection: 0
+  continuousEmission: 1
+  emissionDuration: 3
+  confettiPerSecond: 45
+  rainPerSecond: 140
+  horizontalPadding: 5
+  confettiFallTime: 3
+  rainFallTime: 0.65
+  confettiWidthRange: {x: 12, y: 22}
+  confettiHeightRange: {x: 9, y: 17}
+  confettiSway: 22
+  confettiColors:
+  - {r: 1, g: 0.83137256, b: 0.3529412, a: 1}
+  - {r: 1, g: 0.43137255, b: 0.39215687, a: 1}
+  - {r: 0.40784314, g: 0.7529412, b: 0.9411765, a: 1}
+  - {r: 0.5294118, g: 0.85490197, b: 0.5686275, a: 1}
+  rainWidthRange: {x: 2, y: 4}
+  rainLengthRange: {x: 18, y: 30}
+  rainColor: {r: 0.4509804, g: 0.654902, b: 0.8627451, a: 0.8235294}
 --- !u!1 &755193346
 GameObject:
   m_ObjectHideFlags: 0
@@ -1974,6 +2158,8 @@ MonoBehaviour:
   nextDelaySeconds: 2
   player1StatusFeel: {fileID: 56075796}
   player2StatusFeel: {fileID: 1995001740}
+  player1ResultFX: {fileID: 1445073640}
+  player2ResultFX: {fileID: 753281711}
   confetti: {fileID: 618489145}
   leftNativeConfetti: {fileID: 0}
   rightNativeConfetti: {fileID: 0}
@@ -2158,7 +2344,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -210}
+  m_AnchoredPosition: {x: 0, y: -202}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1072479359
@@ -2303,7 +2489,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 225}
+  m_AnchoredPosition: {x: 0, y: 209}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1160617632
@@ -2337,6 +2523,7 @@ RectTransform:
   - {fileID: 687751465}
   - {fileID: 1268822001}
   - {fileID: 618489144}
+  - {fileID: 247697609}
   - {fileID: 285258456}
   m_Father: {fileID: 1577888483}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -2685,6 +2872,75 @@ RectTransform:
   m_AnchoredPosition: {x: -620, y: -471}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1445073638
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1445073639}
+  - component: {fileID: 1445073640}
+  m_Layer: 5
+  m_Name: RainP1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1445073639
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1445073638}
+  m_LocalRotation: {x: -0, y: -0, z: 1, w: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 247697609}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 480}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1445073640
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1445073638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f4a4305dafda2d4fa75250b337f053d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  area: {fileID: 687751465}
+  renderRoot: {fileID: 247697609}
+  invertFallDirection: 0
+  continuousEmission: 1
+  emissionDuration: 3
+  confettiPerSecond: 55
+  rainPerSecond: 140
+  horizontalPadding: 5
+  confettiFallTime: 2.8
+  rainFallTime: 0.65
+  confettiWidthRange: {x: 9, y: 22}
+  confettiHeightRange: {x: 9, y: 17}
+  confettiSway: 22
+  confettiColors:
+  - {r: 1, g: 0.83137256, b: 0.3529412, a: 1}
+  - {r: 1, g: 0.43137255, b: 0.39215687, a: 1}
+  - {r: 0.40784314, g: 0.7529412, b: 0.9411765, a: 1}
+  - {r: 0.5294118, g: 0.85490197, b: 0.5686275, a: 1}
+  rainWidthRange: {x: 2, y: 4}
+  rainLengthRange: {x: 18, y: 30}
+  rainColor: {r: 0.4509804, g: 0.654902, b: 0.8627451, a: 1}
 --- !u!1 &1479693816
 GameObject:
   m_ObjectHideFlags: 0
@@ -4289,7 +4545,7 @@ MonoBehaviour:
   boardView: {fileID: 214141251}
   gameView: {fileID: 1479693817}
   resultsView: {fileID: 1042684419}
-  gameDurationSeconds: 90
+  gameDurationSeconds: 10
   ingredientRevealSeconds: 3
   tokenRefillSeconds: 1.2
   recipeReplacementSeconds: 1.5

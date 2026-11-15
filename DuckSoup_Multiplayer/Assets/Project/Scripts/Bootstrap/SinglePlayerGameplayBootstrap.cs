@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using DuckSoup.Application.StateMachine;
 using DuckSoup.Core.Randomization;
 using DuckSoup.Features.Conveyor;
@@ -7,6 +8,7 @@ using DuckSoup.Features.GameFeel.Menu;
 using DuckSoup.Features.Menu.Models;
 using DuckSoup.Features.Menu.Services;
 using DuckSoup.Features.Round.Configuration;
+using DuckSoup.Features.Settings;
 using DuckSoup.Features.SinglePlayer.Services;
 using DuckSoup.Features.SinglePlayer.States;
 using DuckSoup.Features.SinglePlayer.Views;
@@ -28,6 +30,9 @@ namespace DuckSoup.Bootstrap
         [Header("Views")]
         [SerializeField] private SinglePlayerBoardView boardView;
         [SerializeField] private SinglePlayerGameView gameView;
+
+        [Header("Pause (optional)")]
+        [SerializeField] private SettingsPanelView pauseSettings;
 
         [Header("Session")]
         [SerializeField, Min(1f)] private float gameDuration = 60f;
@@ -54,6 +59,10 @@ namespace DuckSoup.Bootstrap
         private PlayerPrefsProgressStore progressStore;
         private bool initialized;
         private bool resultSaved;
+        private bool paused;
+        private bool leaving;
+        private float timeScaleBeforePause;
+        private Coroutine resumeCountdown;
 
         private void Awake()
         {
@@ -127,19 +136,83 @@ namespace DuckSoup.Bootstrap
                 stateMachine.RequestStateChange(countdownState);
         }
 
+        private void Start()
+        {
+            if (initialized && pauseSettings != null)
+                pauseSettings.BindPause(TryPause, BeginResumeCountdown, TryAbandonRun);
+        }
+
         private void Update()
         {
-            if (initialized) stateMachine.Tick(Time.deltaTime);
+            if (initialized && !paused) stateMachine.Tick(Time.deltaTime);
         }
 
         private void LateUpdate()
         {
-            if (initialized) stateMachine.ApplyPendingTransition();
+            if (!initialized || paused) return;
+
+            stateMachine.ApplyPendingTransition();
+            if (pauseSettings != null)
+                pauseSettings.SetOpenButtonAvailable(CanPause());
+        }
+
+        private bool CanPause()
+        {
+            return initialized && isActiveAndEnabled && !paused && !leaving &&
+                !session.IsTimeUp &&
+                stateMachine.CurrentStateName == nameof(SinglePlayerPlayingState);
+        }
+
+        private bool TryPause()
+        {
+            if (!CanPause()) return false;
+
+            paused = true;
+            timeScaleBeforePause = Time.timeScale;
+            Time.timeScale = 0f;
+
+            // Bloquear solo el tablero evita reiniciar la musica al reanudar.
+            boardView.SetInputEnabled(false);
+            pauseSettings.SetOpenButtonAvailable(false);
+            return true;
+        }
+
+        private void BeginResumeCountdown()
+        {
+            if (paused && !leaving && resumeCountdown == null && isActiveAndEnabled)
+                resumeCountdown = StartCoroutine(ResumeAfterCountdown());
+        }
+
+        private IEnumerator ResumeAfterCountdown()
+        {
+            for (int number = 3; number > 0; number--)
+            {
+                gameView.ShowOverlay(number.ToString());
+                yield return new WaitForSecondsRealtime(1f);
+            }
+
+            gameView.HideOverlay();
+            boardView.SetInputEnabled(true);
+            Time.timeScale = timeScaleBeforePause;
+            paused = false;
+            resumeCountdown = null;
+        }
+
+        private bool TryAbandonRun()
+        {
+            if (!paused || leaving || resumeCountdown != null) return false;
+
+            // El fundido avanza con la partida pausada.
+            leaving = true;
+            if (SceneFadeTransition.LoadScene(mainMenuSceneName)) return true;
+
+            leaving = false;
+            return false;
         }
 
         private void SaveFinalResult()
         {
-            if (resultSaved) return;
+            if (resultSaved || leaving) return;
             try
             {
                 int previousTotal = progressStore.GetTotalRecipesCompleted();
@@ -179,8 +252,22 @@ namespace DuckSoup.Bootstrap
 
         private void OnDisable()
         {
-            boardView?.SetInputEnabled(false);
+            if (resumeCountdown != null)
+            {
+                StopCoroutine(resumeCountdown);
+                resumeCountdown = null;
+            }
+            if (paused)
+            {
+                Time.timeScale = timeScaleBeforePause;
+                paused = false;
+                if (gameView != null) gameView.HideOverlay();
+            }
+
+            if (pauseSettings != null) pauseSettings.ResetPausePanel();
+            if (boardView != null) boardView.SetInputEnabled(false);
             stateMachine?.Stop();
+            leaving = false;
         }
     }
 }

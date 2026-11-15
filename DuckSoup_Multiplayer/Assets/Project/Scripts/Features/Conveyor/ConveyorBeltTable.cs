@@ -39,6 +39,10 @@ namespace DuckSoup.Features.Conveyor
         [SerializeField] private GameObject countdownOrTimeUpOverlay;
         [SerializeField] private GameObject resultsPanel;
 
+        [Header("Table backgrounds (optional)")]
+        [SerializeField] private GameObject classicBackground;
+        [SerializeField] private GameObject conveyorBackground;
+
         private sealed class SlotInfo
         {
             public RectTransform Slot;
@@ -71,6 +75,13 @@ namespace DuckSoup.Features.Conveyor
         public void Configure(bool enabledForThisRound)
         {
             useConveyor = enabledForThisRound;
+
+            if (classicBackground == null || conveyorBackground == null ||
+                classicBackground == conveyorBackground)
+                return;
+
+            classicBackground.SetActive(!useConveyor);
+            conveyorBackground.SetActive(useConveyor);
         }
 
         private void Start()

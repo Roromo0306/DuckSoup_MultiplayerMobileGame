@@ -48,8 +48,7 @@ namespace DuckSoup.Features.Menu.Views
         [SerializeField]
         private Button twoPlayersButton;
 
-        [SerializeField]
-        private TextMeshProUGUI drawerTabText;
+        
 
         [Header("Drawer Animation")]
         [SerializeField]
@@ -126,7 +125,7 @@ namespace DuckSoup.Features.Menu.Views
 
             SetDrawerPosition(closedY);
 
-            drawerTabText.text = "▲ GAME MODE";
+           // drawerTabText.text = "▲ GAME MODE";
 
             noticePanel.SetActive(false);
 
@@ -139,6 +138,7 @@ namespace DuckSoup.Features.Menu.Views
         /// Actualiza la información del menú
         /// según el modo seleccionado.
         /// </summary>
+
         private void Refresh()
         {
             if (controller == null)
@@ -153,14 +153,15 @@ namespace DuckSoup.Features.Menu.Views
             playerNameText.text =
                 controller.PlayerName;
 
+            // Mostrar solamente el numero de recetas.
             totalRecipesText.text =
-                "TOTAL RECIPES: " +
-                controller.TotalRecipesCompleted;
+                controller.TotalRecipesCompleted.ToString();
 
             selectedModeText.text = isSinglePlayer
                 ? "1 PLAYER MODE"
                 : "2 PLAYERS MODE";
         }
+
 
         private void SelectOnePlayer()
         {
@@ -232,9 +233,9 @@ namespace DuckSoup.Features.Menu.Views
             drawerAnimation = StartCoroutine(
                 MoveDrawer(targetY));
 
-            drawerTabText.text = open
-                ? "▼ GAME MODE"
-                : "▲ GAME MODE";
+            //drawerTabText.text = open
+             //   ? "▼ GAME MODE"
+              //  : "▲ GAME MODE";
         }
 
         private IEnumerator MoveDrawer(float targetY)
@@ -301,7 +302,7 @@ namespace DuckSoup.Features.Menu.Views
                 drawerTabButton == null ||
                 onePlayerButton == null ||
                 twoPlayersButton == null ||
-                drawerTabText == null ||
+                //drawerTabText == null ||
                 noticePanel == null ||
                 noticeText == null ||
                 noticeCloseButton == null)

@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using DuckSoup.Features.GameFeel.UI;
 using DuckSoup.Features.Menu.Contracts;
-using DuckSoup.Features.Transitions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,7 +23,7 @@ namespace DuckSoup.Features.Menu.Views
 
     public sealed class TableSelectorView : MonoBehaviour
     {
-        [Header("Panel")]
+        [Header("Popup")]
         [SerializeField] private GameObject panelRoot;
 
         [Header("Table Information")]
@@ -37,10 +36,16 @@ namespace DuckSoup.Features.Menu.Views
         [SerializeField] private Button nextButton;
         [SerializeField] private Button closeButton;
 
-        [Header("Normal PLAY Button")]
+        [Header("SELECT Button Inside Popup")]
         [SerializeField] private Button playButton;
+        [SerializeField] private TextMeshProUGUI selectButtonText;
 
-        [Header("Available Tables")]
+        [Header("NEW - Button Text Outside Popup")]
+        [Tooltip("El TMP del boton situado debajo de PLAY en el menu.")]
+        [SerializeField]
+        private TextMeshProUGUI mainMenuSelectedTableText;
+
+        [Header("Tables")]
         [SerializeField]
         private TableDisplayData[] tables =
             new TableDisplayData[0];
@@ -48,15 +53,15 @@ namespace DuckSoup.Features.Menu.Views
         [Header("Game Feel")]
         [SerializeField] private UICarouselFeel carouselFeel;
 
-        [Header("Panel Transition")]
-        [SerializeField] private UIPanelTransition panelTransition;
+        [Header("Debug")]
+        [SerializeField] private bool showDebugLogs = true;
 
         private IPlayerProgressStore progressStore;
         private Action<TableDisplayData> tableConfirmed;
 
         private int selectedIndex;
         private bool initialized;
-        private bool confirmed;
+        private bool confirming;
 
         public void Initialize(
             IPlayerProgressStore store,
@@ -78,47 +83,52 @@ namespace DuckSoup.Features.Menu.Views
             previousButton.onClick.AddListener(PreviousTable);
             nextButton.onClick.AddListener(NextTable);
             closeButton.onClick.AddListener(Hide);
-            playButton.onClick.AddListener(ConfirmTable);
+
+            // IMPORTANTE:
+            // No registramos OnClick para SELECT.
+            // Lo controla TableSelectDirectInput.
+            if (selectButtonText == null)
+            {
+                selectButtonText =
+                    playButton.GetComponentInChildren<
+                        TextMeshProUGUI>(true);
+            }
+
+            if (selectButtonText != null)
+                selectButtonText.text = "SELECT";
 
             selectedIndex = 0;
             initialized = true;
 
             panelRoot.SetActive(false);
+
+            Log("Initialized.");
         }
 
         public void Open()
         {
             if (!initialized)
-            {
-                Debug.LogError(
-                    "[TableSelector] No inicializado.", this);
                 return;
-            }
 
-            selectedIndex = 0;
-            confirmed = false;
+            confirming = false;
+            panelRoot.SetActive(true);
 
             Refresh();
 
-            if (panelTransition != null)
-                panelTransition.Show();
-            else
-                panelRoot.SetActive(true);
-
             carouselFeel?.ResetVisual(true);
+
+            Log("OPEN");
         }
 
         public void Hide()
         {
-            if (panelTransition != null)
-                panelTransition.Hide();
-            else
-                panelRoot.SetActive(false);
-        }
+            if (panelRoot == null)
+                return;
 
-        private void NextTable()
-        {
-            Move(1);
+            panelRoot.SetActive(false);
+
+            Log("CLOSE | Panel active: " +
+                panelRoot.activeSelf);
         }
 
         private void PreviousTable()
@@ -126,11 +136,20 @@ namespace DuckSoup.Features.Menu.Views
             Move(-1);
         }
 
+        private void NextTable()
+        {
+            Move(1);
+        }
+
         private void Move(int direction)
         {
-            if (tables.Length < 2 || confirmed ||
-                (carouselFeel != null &&
-                 carouselFeel.IsSwitching))
+            if (!initialized ||
+                confirming ||
+                tables.Length < 2)
+                return;
+
+            if (carouselFeel != null &&
+                carouselFeel.IsSwitching)
                 return;
 
             if (carouselFeel == null)
@@ -156,50 +175,114 @@ namespace DuckSoup.Features.Menu.Views
 
         private void Refresh()
         {
-            TableDisplayData table = tables[selectedIndex];
+            if (!initialized)
+                return;
+
+            TableDisplayData table =
+                tables[selectedIndex];
 
             tableNameText.text = table.DisplayName;
 
             highScoreText.text =
-                $"HIGH SCORE: " +
-                $"{progressStore.GetTableHighScore(table.Id)} " +
-                $"RECIPES";
+                "HIGH SCORE: " +
+                progressStore.GetTableHighScore(table.Id);
 
             tableImage.sprite = table.PreviewSprite;
-            tableImage.enabled = table.PreviewSprite != null;
+            tableImage.enabled =
+                table.PreviewSprite != null;
 
-            bool multipleTables = tables.Length > 1;
+            previousButton.interactable =
+                tables.Length > 1;
 
-            previousButton.interactable = multipleTables;
-            nextButton.interactable = multipleTables;
+            nextButton.interactable =
+                tables.Length > 1;
 
-            playButton.interactable = !confirmed;
+            if (selectButtonText != null)
+                selectButtonText.text = "SELECT";
         }
 
-        private void ConfirmTable()
+        // NUEVO METODO PUBLICO.
+        // Lo llama directamente el script del boton.
+        public void ConfirmSelectionFromDirectInput()
         {
-            if (confirmed ||
-                (carouselFeel != null &&
-                 carouselFeel.IsSwitching))
+            Log("DIRECT SELECT RECEIVED");
+
+            if (!initialized || confirming)
                 return;
 
-            confirmed = true;
-            playButton.interactable = false;
+            if (tables == null || tables.Length == 0)
+                return;
 
-            TableDisplayData table = tables[selectedIndex];
+            confirming = true;
 
-            // Terminamos la animacion de cierre
-            // ANTES de solicitar el cambio de escena.
-            if (panelTransition != null)
+            TableDisplayData selected =
+                tables[selectedIndex];
+
+            try
             {
-                panelTransition.Hide(
-                    () => tableConfirmed?.Invoke(table));
+                // 1. Actualizar directamente el texto
+                // del boton situado debajo de PLAY.
+                if (mainMenuSelectedTableText != null)
+                {
+                    mainMenuSelectedTableText.text =
+                        selected.DisplayName;
+                }
+                else
+                {
+                    Debug.LogWarning(
+                        "[TableSelector] Asigna " +
+                        "Main Menu Selected Table Text.",
+                        this);
+                }
+
+                // 2. Avisar al Bootstrap.
+                // Esto es importante: no basta con
+                // cambiar el texto visual. Tambien
+                // debe guardarse el TableId real.
+                tableConfirmed?.Invoke(selected);
+
+                Log("SELECTED: " + selected.Id);
             }
-            else
+            catch (Exception e)
             {
+                Debug.LogException(e, this);
+            }
+            finally
+            {
+                // 3. Cerrar SIEMPRE el popup.
                 Hide();
-                tableConfirmed?.Invoke(table);
+                confirming = false;
             }
+        }
+
+        public bool TrySelectTableById(
+            string tableId,
+            out TableDisplayData selected)
+        {
+            selected = null;
+
+            if (!initialized ||
+                string.IsNullOrWhiteSpace(tableId))
+                return false;
+
+            for (int i = 0; i < tables.Length; i++)
+            {
+                if (!string.Equals(
+                    tables[i].Id,
+                    tableId,
+                    StringComparison.Ordinal))
+                    continue;
+
+                selectedIndex = i;
+                selected = tables[i];
+
+                if (panelRoot.activeSelf)
+                    Refresh();
+
+                return true;
+            }
+
+            return false;
         }
 
         private void ValidateReferences()
@@ -214,15 +297,17 @@ namespace DuckSoup.Features.Menu.Views
                 playButton == null)
             {
                 throw new InvalidOperationException(
-                    "[TableSelector] Faltan referencias.");
+                    "[TableSelector] Missing Inspector references.");
             }
         }
 
         private void ValidateTables()
         {
             if (tables == null || tables.Length == 0)
+            {
                 throw new InvalidOperationException(
-                    "[TableSelector] Añade al menos una mesa.");
+                    "[TableSelector] No tables configured.");
+            }
 
             var ids = new HashSet<string>(
                 StringComparer.Ordinal);
@@ -235,9 +320,18 @@ namespace DuckSoup.Features.Menu.Views
                     !ids.Add(table.Id.Trim()))
                 {
                     throw new InvalidOperationException(
-                        "[TableSelector] Mesa invalida " +
-                        "o ID duplicado.");
+                        "[TableSelector] Invalid table data.");
                 }
+            }
+        }
+
+        private void Log(string message)
+        {
+            if (showDebugLogs)
+            {
+                Debug.Log(
+                    "[TableSelector] " + message,
+                    this);
             }
         }
 
@@ -249,7 +343,6 @@ namespace DuckSoup.Features.Menu.Views
             previousButton.onClick.RemoveListener(PreviousTable);
             nextButton.onClick.RemoveListener(NextTable);
             closeButton.onClick.RemoveListener(Hide);
-            playButton.onClick.RemoveListener(ConfirmTable);
         }
     }
 }
