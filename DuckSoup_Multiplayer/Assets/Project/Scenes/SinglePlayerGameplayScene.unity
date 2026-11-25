@@ -1280,6 +1280,9 @@ MonoBehaviour:
   resultsPanel: {fileID: 0}
   classicBackground: {fileID: 1344776619}
   conveyorBackground: {fileID: 163484880}
+  gameplayMusicSource: {fileID: 1183650416}
+  classicMusicClip: {fileID: 8300000, guid: 50ab5eeace2877b4da20b83e6e741013, type: 3}
+  conveyorMusicClip: {fileID: 8300000, guid: eb903795a9ddc86418282a2c5d594900, type: 3}
 --- !u!1 &389581803
 GameObject:
   m_ObjectHideFlags: 0

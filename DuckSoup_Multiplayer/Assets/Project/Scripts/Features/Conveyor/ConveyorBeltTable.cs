@@ -43,6 +43,11 @@ namespace DuckSoup.Features.Conveyor
         [SerializeField] private GameObject classicBackground;
         [SerializeField] private GameObject conveyorBackground;
 
+        [Header("Table music")]
+        [SerializeField] private AudioSource gameplayMusicSource;
+        [SerializeField] private AudioClip classicMusicClip;
+        [SerializeField] private AudioClip conveyorMusicClip;
+
         private sealed class SlotInfo
         {
             public RectTransform Slot;
@@ -75,6 +80,10 @@ namespace DuckSoup.Features.Conveyor
         public void Configure(bool enabledForThisRound)
         {
             useConveyor = enabledForThisRound;
+
+            AudioClip music = useConveyor ? conveyorMusicClip : classicMusicClip;
+            if (gameplayMusicSource != null && music != null)
+                gameplayMusicSource.clip = music;
 
             if (classicBackground == null || conveyorBackground == null ||
                 classicBackground == conveyorBackground)

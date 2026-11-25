@@ -1,5 +1,6 @@
 
 using System;
+using DuckSoup.Features.Audio;
 using DuckSoup.Features.GameFeel.Gameplay;
 using DuckSoup.Features.GameFeel.UI;
 using DuckSoup.Features.TwoPlayer.Contracts;
@@ -32,11 +33,14 @@ namespace DuckSoup.Features.TwoPlayer.Views
         [SerializeField] private TimerMusicFeel timerMusic;
         [SerializeField] private UIShakeFeel overlayShake;
 
+        [SerializeField] private GameplayOverlaySound overlaySound;
+        private string roundTitle;
+
         private TwoPlayerSession session;
         private int lastLoggedPlayer1 = int.MinValue;
         private int lastLoggedPlayer2 = int.MinValue;
 
-        public void Initialize(TwoPlayerSession newSession)
+        public void Initialize(TwoPlayerSession newSession, string title = null)
         {
             session = newSession ??
                 throw new ArgumentNullException(nameof(newSession));
@@ -51,7 +55,10 @@ namespace DuckSoup.Features.TwoPlayer.Views
                     "TwoPlayerGameView: asigna Board, Timer Text, " +
                     "Overlay Text, Player1 Score Text y Player2 Score Text.");
             }
+            roundTitle = title;
 
+            if (overlaySound == null)
+                overlaySound = overlayText.GetComponent<GameplayOverlaySound>();
             overlayText.gameObject.SetActive(false);
 
             player1ScoreText.gameObject.SetActive(true);
@@ -92,18 +99,22 @@ namespace DuckSoup.Features.TwoPlayer.Views
 
         public void ShowOverlay(string message)
         {
-            overlayText.text = message;
+            bool finishCue =
+                string.Equals(message, "FINISH", StringComparison.OrdinalIgnoreCase) ||
+                message.StartsWith("TIME UP", StringComparison.OrdinalIgnoreCase);
+
+            bool intermissionCue =
+                message.StartsWith("ROUND 1 COMPLETE!", StringComparison.Ordinal);
+
+            if (overlaySound != null)
+                overlaySound.SetOverlayCue(message);
+
+            overlayText.text = finishCue || intermissionCue ? "FINISH" : message;
             overlayText.gameObject.SetActive(true);
 
-            if (overlayShake != null &&
-                message.StartsWith(
-                    "TIME UP",
-                    StringComparison.OrdinalIgnoreCase))
-            {
+            if (overlayShake != null && finishCue)
                 overlayShake.Shake();
-            }
         }
-
         public void HideOverlay()
         {
             overlayText.gameObject.SetActive(false);

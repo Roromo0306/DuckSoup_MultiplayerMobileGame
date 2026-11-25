@@ -17,7 +17,7 @@ namespace DuckSoup.Features.TwoPlayer.Services
     public sealed partial class TwoPlayerSession
     {
         public const int CardsPerPlayer = 3;
-        public const int TokenSlots = 18;
+        public const int TokenSlots = 15;
 
         private readonly IRandomSource random;
         private readonly AvailableRecipeGenerator generator;
@@ -104,15 +104,40 @@ namespace DuckSoup.Features.TwoPlayer.Services
         private RecipeCardModel NewCard(int playerIndex)
         {
             cardSerial++;
-            RecipeDefinition recipe = generator.Generate(GetStockIncludingPending(), AllCards());
+            RecipeDefinition recipe = generator.Generate(GetStockIncludingPending(), CardsOf(playerIndex));
             return new RecipeCardModel($"p{playerIndex + 1}_card_{cardSerial:000000}", recipe);
         }
 
-        private IEnumerable<RecipeCardModel> AllCards()
+        private IEnumerable<RecipeCardModel> CardsOf(int playerIndex)
         {
-            for (int p = 0; p < 2; p++)
-                for (int c = 0; c < CardsPerPlayer; c++)
-                    if (cards[p, c] != null) yield return cards[p, c];
+            for (int c = 0; c < CardsPerPlayer; c++)
+                if (cards[playerIndex, c] != null) yield return cards[playerIndex, c];
+        }
+
+        private int RequiredAtTable(IngredientType ingredient)
+        {
+            // Cada mano reserva sus propias unidades. Ambos jugadores comparten la mesa.
+            return Math.Max(RequiredBy(0, ingredient), RequiredBy(1, ingredient));
+        }
+
+        private int RequiredBy(int playerIndex, IngredientType ingredient)
+        {
+            int remaining = 0;
+            foreach (RecipeCardModel card in CardsOf(playerIndex))
+                remaining += card.Progress.GetRequiredCount(ingredient) -
+                    card.Progress.GetCompletedCount(ingredient);
+            return remaining;
+        }
+
+        private IngredientType NextIngredient(IngredientType consumed)
+        {
+            int available = 0;
+            foreach (IngredientType type in GetStockIncludingPending())
+                if (type == consumed) available++;
+
+            return available < RequiredAtTable(consumed)
+                ? consumed
+                : generator.RandomIngredient();
         }
 
         private IEnumerable<IngredientType> GetStockIncludingPending()
@@ -179,7 +204,7 @@ namespace DuckSoup.Features.TwoPlayer.Services
 
                 tokens[t] = null;
                 hideTimers[t] = -1f;
-                pendingIngredients[t] = generator.RandomIngredient();
+                pendingIngredients[t] = NextIngredient(token.Ingredient);
                 refillTimers[t] = refillSeconds;
 
                 if (card.IsComplete)

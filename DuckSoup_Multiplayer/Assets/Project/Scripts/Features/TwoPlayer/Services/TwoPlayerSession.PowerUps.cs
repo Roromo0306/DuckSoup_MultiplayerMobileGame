@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using DuckSoup.Domain;
@@ -181,7 +180,7 @@ namespace DuckSoup.Features.TwoPlayer.Services
 
             var slots =
                 PowerTokenAvailability.GetEligibleSlots(
-                    AllCards(),
+                    RequiredAtTable,
                     tokens,
                     pendingIngredients,
                     refillTimers,
@@ -747,30 +746,7 @@ namespace DuckSoup.Features.TwoPlayer.Services
         private void EnsureIngredientAvailable(
             IngredientType needed)
         {
-            var demand = new Dictionary<IngredientType, int>();
             var stock = new Dictionary<IngredientType, int>();
-
-            foreach (RecipeCardModel card in AllCards())
-            {
-                if (card.IsComplete)
-                    continue;
-
-                var visited = new HashSet<IngredientType>();
-
-                foreach (IngredientType type
-                    in card.Definition.RequiredIngredients)
-                {
-                    if (!visited.Add(type))
-                        continue;
-
-                    int rest =
-                        card.Progress.GetRequiredCount(type) -
-                        card.Progress.GetCompletedCount(type);
-
-                    demand[type] =
-                        GetCount(demand, type) + rest;
-                }
-            }
 
             foreach (IngredientType type
                 in GetStockIncludingPending())
@@ -780,7 +756,7 @@ namespace DuckSoup.Features.TwoPlayer.Services
             }
 
             if (GetCount(stock, needed) >=
-                GetCount(demand, needed))
+                RequiredAtTable(needed))
             {
                 return;
             }
@@ -796,7 +772,7 @@ namespace DuckSoup.Features.TwoPlayer.Services
                         : pendingIngredients[i];
 
                 if (GetCount(stock, type) <=
-                    GetCount(demand, type))
+                    RequiredAtTable(type))
                 {
                     continue;
                 }

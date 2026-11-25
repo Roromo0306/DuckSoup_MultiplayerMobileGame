@@ -20,6 +20,7 @@ namespace DuckSoup.Features.Audio
         private bool useRecordedCountdown = true;
 
         private string lastMessage;
+        private string overlayCue;
 
         private void Awake()
         {
@@ -38,13 +39,16 @@ namespace DuckSoup.Features.Audio
             TryPlayChangedText();
         }
 
+        public void SetOverlayCue(string cue)
+        {
+            overlayCue = cue;
+        }
         private void TryPlayChangedText()
         {
             if (overlayText == null)
                 return;
 
-            string current =
-                (overlayText.text ?? "").Trim();
+            string current = (overlayCue ?? overlayText.text ?? "").Trim();
 
             if (string.Equals(
                 current,

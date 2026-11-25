@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using DuckSoup.Features.Round.Models;
 
@@ -15,7 +16,6 @@ namespace DuckSoup.Features.PowerUps
             Dictionary<string, int> pointerOwners)
         {
             var required = new Dictionary<IngredientType, int>();
-            var available = new Dictionary<IngredientType, int>();
 
             foreach (RecipeCardModel card in cards)
             {
@@ -30,6 +30,19 @@ namespace DuckSoup.Features.PowerUps
                 }
             }
 
+            return GetEligibleSlots(type => Count(required, type), tokens, pending,
+                refillTimers, kinds, pointerOwners);
+        }
+
+        public static List<int> GetEligibleSlots(
+            Func<IngredientType, int> requiredCount,
+            IngredientToken[] tokens,
+            IngredientType[] pending,
+            float[] refillTimers,
+            PowerTokenKind[] kinds,
+            Dictionary<string, int> pointerOwners)
+        {
+            var available = new Dictionary<IngredientType, int>();
             for (int i = 0; i < tokens.Length; i++)
             {
                 if (tokens[i] != null && kinds[i] == PowerTokenKind.None)
@@ -47,7 +60,7 @@ namespace DuckSoup.Features.PowerUps
                     pointerOwners.ContainsKey(token.Id))
                     continue;
                 IngredientType type = token.Ingredient;
-                if (Count(available, type) > Count(required, type))
+                if (Count(available, type) > requiredCount(type))
                     eligible.Add(i);
             }
             return eligible;

@@ -110,30 +110,34 @@ namespace DuckSoup.Bootstrap
                     boardView.SetPowerUpHud(powerUpHud);
                 }
                 boardView.Initialize(session);
-                gameView.Initialize(session);
+
+                string roundTitle = useConveyor
+                    ? "ROUND 2\nCONVEYOR TABLE"
+                    : "ROUND 1\nCLASSIC TABLE";
+
+                gameView.Initialize(session, roundTitle);
+
                 machine = new GameStateMachine();
+
                 roundIntro = new TextIntroState(
-                    gameView,
-                    () => currentRound == 1
-                        ? "ROUND 1\nCLASSIC TABLE"
-                        : "ROUND 2\nCONVEYOR TABLE",
+                    gameView, () => roundTitle,
                     roundIntroSeconds,
                     () => machine.RequestStateChange(countdown));
+
                 countdown = new TwoPlayerCountdownState(
                     gameView, () => machine.RequestStateChange(playing));
+
                 playing = new TwoPlayerPlayingState(
                     session, gameView, () => machine.RequestStateChange(timeUp));
+
                 timeUp = new TwoPlayerTimeUpState(
                     gameView, RoundFinished, timeUpMessageSeconds);
+
                 intermission = new TextIntroState(
-                    gameView,
-                    () => "ROUND 1 COMPLETE!\n" +
-                        TwoPlayerMatchProgress.Player1Total + " - " +
-                        TwoPlayerMatchProgress.Player2Total +
-                        "\nNEXT: CONVEYOR TABLE",
-                    betweenRoundsSeconds,
-                    LoadNextRound);
+                    gameView, () => "ROUND 1 COMPLETE!",
+                    betweenRoundsSeconds, LoadNextRound);
                 results = new AggregateResultsState(resultsView);
+                resultsView.NextRequested += ReturnToMainMenu;
 
                 initialized = true;
                 Debug.Log($"[2P] Ronda {currentRound}/2. Conveyor: {useConveyor}.", this);
@@ -167,7 +171,6 @@ namespace DuckSoup.Bootstrap
 
             if (hasAnotherRound)
             {
-                // Ronda 1: mostramos aviso y recargamos la misma escena.
                 machine.RequestStateChange(intermission);
             }
             else
