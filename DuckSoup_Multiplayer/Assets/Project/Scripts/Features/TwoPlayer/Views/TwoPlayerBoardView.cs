@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using DuckSoup.Domain;
@@ -74,41 +73,31 @@ namespace DuckSoup.Features.TwoPlayer.Views
             }
 
             session = newSession ??
-                throw new ArgumentNullException(
-                    nameof(newSession));
+                throw new ArgumentNullException(nameof(newSession));
 
             ValidateReferences();
 
-            TwoPlayerSnapshot snapshot =
-                session.GetSnapshot();
+            TwoPlayerSnapshot snapshot = session.GetSnapshot();
 
-            foreach (RecipeCardSnapshot card
-                in snapshot.Player1Cards)
+            foreach (RecipeCardSnapshot card in snapshot.Player1Cards)
             {
                 RecipeCardView view =
-                    Instantiate(
-                        recipeCardPrefab,
-                        player1CardsRoot);
+                    Instantiate(recipeCardPrefab, player1CardsRoot);
 
                 EnsureCardFeel(view);
                 cards1.Add(view);
             }
 
-            foreach (RecipeCardSnapshot card
-                in snapshot.Player2Cards)
+            foreach (RecipeCardSnapshot card in snapshot.Player2Cards)
             {
                 RecipeCardView view =
-                    Instantiate(
-                        recipeCardPrefab,
-                        player2CardsRoot);
+                    Instantiate(recipeCardPrefab, player2CardsRoot);
 
                 EnsureCardFeel(view);
                 cards2.Add(view);
             }
 
-            for (int i = 0;
-                i < TwoPlayerSession.TokenSlots;
-                i++)
+            for (int i = 0; i < TwoPlayerSession.TokenSlots; i++)
             {
                 var slot = new GameObject(
                     $"TokenSlot_{i:00}",
@@ -162,9 +151,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
             if (accepted)
             {
                 Refresh();
-
-                DuckSoupSoundPlayer.Play(
-                    DuckSoupSoundId.IngredientTap);
+                DuckSoupSoundPlayer.Play(DuckSoupSoundId.IngredientTap);
             }
 
             return accepted;
@@ -183,41 +170,15 @@ namespace DuckSoup.Features.TwoPlayer.Views
                     ? PlayerId.Player1
                     : PlayerId.Player2;
 
-            bool accepted =
-                TryBeginToken(tokenId, pointerId);
+            bool accepted = TryBeginToken(tokenId, pointerId);
 
             if (!accepted)
                 return false;
-
-            if (session.GetPowerKind(tokenId) ==
-                PowerTokenKind.Poison)
-            {
-                bool removedTick;
-
-                session.TryTouchPoison(
-                    tokenId,
-                    pointerId,
-                    actor,
-                    out removedTick);
-
-                Refresh();
-
-                powerUpHud?.ShowFeedback(
-                    removedTick
-                        ? "POISON! -1 INGREDIENT"
-                        : "POISON!");
-
-                DuckSoupSoundPlayer.Play(
-                    DuckSoupSoundId.IncorrectIngredient);
-
-                return false;
-            }
 
             pointerActors[pointerId] = actor;
             return true;
         }
 
-        // Ningun token se bloquea por estar arriba o abajo.
         public bool CanTouchAt(Vector2 screenPosition)
         {
             return inputEnabled &&
@@ -235,19 +196,11 @@ namespace DuckSoup.Features.TwoPlayer.Views
                 return;
 
             if (session.PowerUpsEnabled)
-            {
-                card.GetComponent<RecipeCardFeel>()?
-                    .CelebrateCombo();
-            }
+                card.GetComponent<RecipeCardFeel>()?.CelebrateCombo();
             else
-            {
-                card.GetComponent<RecipeCardFeel>()?
-                    .Complete();
-            }
+                card.GetComponent<RecipeCardFeel>()?.Complete();
 
-            DuckSoupSoundPlayer.Play(
-                DuckSoupSoundId.RecipeCompleted);
-
+            DuckSoupSoundPlayer.Play(DuckSoupSoundId.RecipeCompleted);
             RecipeCompleted?.Invoke(card.Owner);
         }
 
@@ -270,35 +223,23 @@ namespace DuckSoup.Features.TwoPlayer.Views
 
             pointerActors.Remove(pointerId);
 
-            PowerTokenKind special =
-                session.GetPowerKind(tokenId);
+            PowerTokenKind special = session.GetPowerKind(tokenId);
 
             if (inputEnabled &&
                 wasDragged &&
-                TryFindTargetCard(
-                    screenPoint,
-                    eventCamera,
-                    out target))
+                TryFindTargetCard(screenPoint, eventCamera, out target))
             {
-                cardWasLocked =
-                    session.IsCardLocked(
-                        target.Owner,
-                        target.CardId);
+                cardWasLocked = session.IsCardLocked(
+                    target.Owner,
+                    target.CardId);
 
                 if (cardWasLocked)
                 {
-                    // La carta ya esta bloqueada.
-                    // No consume la ficha ni reinicia el timer.
-                    session.CancelGesture(
-                        tokenId,
-                        pointerId);
-
-                    powerUpHud?.ShowFeedback(
-                        "CARD LOCKED!");
+                    session.CancelGesture(tokenId, pointerId);
+                    powerUpHud?.ShowFeedback("CARD LOCKED!");
                 }
                 else
                 {
-                    // Detectar el fallo antes de entregar.
                     bool wrongIngredient =
                         special == PowerTokenKind.None &&
                         session.IsWrongIngredientForCard(
@@ -308,39 +249,31 @@ namespace DuckSoup.Features.TwoPlayer.Views
 
                     if (special != PowerTokenKind.None)
                     {
-                        accepted =
-                            session.TryDeliverSpecial(
-                                tokenId,
-                                pointerId,
-                                target.Owner,
-                                target.CardId,
-                                out completed);
+                        accepted = session.TryDeliverSpecial(
+                            tokenId,
+                            pointerId,
+                            target.Owner,
+                            target.CardId,
+                            out completed);
                     }
                     else
                     {
-                        accepted =
-                            session.TryDeliver(
-                                tokenId,
-                                pointerId,
-                                target.Owner,
-                                target.CardId,
-                                out completed);
+                        accepted = session.TryDeliver(
+                            tokenId,
+                            pointerId,
+                            target.Owner,
+                            target.CardId,
+                            out completed);
                     }
 
-                    // Si el ingrediente no era correcto,
-                    // se bloquea SOLO la carta destino.
                     if (!accepted && wrongIngredient)
                     {
-                        bool locked =
-                            session.ApplyWrongDeliveryPenalty(
-                                target.Owner,
-                                target.CardId);
+                        bool locked = session.ApplyWrongDeliveryPenalty(
+                            target.Owner,
+                            target.CardId);
 
                         if (locked)
-                        {
-                            powerUpHud?.ShowFeedback(
-                                "CARD LOCKED!");
-                        }
+                            powerUpHud?.ShowFeedback("CARD LOCKED!");
                     }
                 }
 
@@ -349,10 +282,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
             }
             else
             {
-                // Soltar fuera de cartas no penaliza.
-                session.CancelGesture(
-                    tokenId,
-                    pointerId);
+                session.CancelGesture(tokenId, pointerId);
             }
 
             Refresh();
@@ -378,22 +308,20 @@ namespace DuckSoup.Features.TwoPlayer.Views
                         ? DuckSoupSoundId.CorrectIngredient
                         : DuckSoupSoundId.IncorrectIngredient);
 
-                if (accepted &&
-                    special != PowerTokenKind.None)
+                if (accepted && special != PowerTokenKind.None)
                 {
                     powerUpHud?.ShowFeedback(
-                        special ==
-                        PowerTokenKind.ExtraComboTime
+                        special == PowerTokenKind.ExtraComboTime
                             ? "COMBO TIME EXTENDED!"
-                            : "POWER-UP!");
+                            : special == PowerTokenKind.Poison
+                                ? "POOP! -1 INGREDIENT"
+                                : "POWER-UP!");
                 }
             }
 
             if (completed)
             {
-                DuckSoupSoundPlayer.Play(
-                    DuckSoupSoundId.RecipeCompleted);
-
+                DuckSoupSoundPlayer.Play(DuckSoupSoundId.RecipeCompleted);
                 RecipeCompleted?.Invoke(completedBy);
             }
 
@@ -405,10 +333,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
             int pointerId)
         {
             pointerActors.Remove(pointerId);
-
-            session?.CancelGesture(
-                tokenId,
-                pointerId);
+            session?.CancelGesture(tokenId, pointerId);
         }
 
         private bool TryFindTargetCard(
@@ -418,9 +343,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
         {
             foreach (RecipeCardView card in cards1)
             {
-                if (card.ContainsScreenPoint(
-                    screenPoint,
-                    camera))
+                if (card.ContainsScreenPoint(screenPoint, camera))
                 {
                     target = card;
                     return true;
@@ -429,9 +352,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
 
             foreach (RecipeCardView card in cards2)
             {
-                if (card.ContainsScreenPoint(
-                    screenPoint,
-                    camera))
+                if (card.ContainsScreenPoint(screenPoint, camera))
                 {
                     target = card;
                     return true;
@@ -447,78 +368,50 @@ namespace DuckSoup.Features.TwoPlayer.Views
             if (!initialized)
                 return;
 
-            TwoPlayerSnapshot snapshot =
-                session.GetSnapshot();
+            TwoPlayerSnapshot snapshot = session.GetSnapshot();
 
-            for (int c = 0;
-                c < TwoPlayerSession.CardsPerPlayer;
-                c++)
+            for (int i = 0; i < TwoPlayerSession.CardsPerPlayer; i++)
             {
-                cards1[c].Bind(
-                    snapshot.Player1Cards[c],
-                    PlayerId.Player1);
+                cards1[i].Bind(snapshot.Player1Cards[i], PlayerId.Player1);
+                cards2[i].Bind(snapshot.Player2Cards[i], PlayerId.Player2);
 
-                cards2[c].Bind(
-                    snapshot.Player2Cards[c],
-                    PlayerId.Player2);
+                cards1[i].GetComponent<RecipeCardArtView>()?
+                    .Render(snapshot.Player1Cards[i]);
 
-                cards1[c]
-                    .GetComponent<RecipeCardArtView>()?
-                    .Render(snapshot.Player1Cards[c]);
+                cards2[i].GetComponent<RecipeCardArtView>()?
+                    .Render(snapshot.Player2Cards[i]);
 
-                cards2[c]
-                    .GetComponent<RecipeCardArtView>()?
-                    .Render(snapshot.Player2Cards[c]);
+                cards1[i].GetComponent<RecipeCardFeel>()?.ObserveCard(
+                    snapshot.Player1Cards[i].CardId,
+                    DealOrigin(player1DealOrigins, i),
+                    i);
 
-                cards1[c]
-                    .GetComponent<RecipeCardFeel>()?
-                    .ObserveCard(
-                        snapshot.Player1Cards[c].CardId,
-                        DealOrigin(
-                            player1DealOrigins,
-                            c),
-                        c);
-
-                cards2[c]
-                    .GetComponent<RecipeCardFeel>()?
-                    .ObserveCard(
-                        snapshot.Player2Cards[c].CardId,
-                        DealOrigin(
-                            player2DealOrigins,
-                            c),
-                        c);
+                cards2[i].GetComponent<RecipeCardFeel>()?.ObserveCard(
+                    snapshot.Player2Cards[i].CardId,
+                    DealOrigin(player2DealOrigins, i),
+                    i);
             }
 
-            for (int i = 0;
-                i < TwoPlayerSession.TokenSlots;
-                i++)
+            for (int i = 0; i < TwoPlayerSession.TokenSlots; i++)
             {
                 tokenViews[i].Refresh(
                     snapshot.Tokens[i],
                     snapshot.Tokens[i] == null
                         ? PowerTokenKind.None
-                        : session.GetPowerKind(
-                            snapshot.Tokens[i].Id));
+                        : session.GetPowerKind(snapshot.Tokens[i].Id));
             }
         }
 
         private void EnsureCardFeel(RecipeCardView card)
         {
             if (card.GetComponent<RecipeCardFeel>() == null)
-            {
                 card.gameObject.AddComponent<RecipeCardFeel>();
-            }
 
-            // Crear el candado sobre esta carta.
             RecipeCardLockOverlay overlay =
                 card.GetComponent<RecipeCardLockOverlay>();
 
             if (overlay == null)
-            {
-                overlay =
-                    card.gameObject.AddComponent<
-                        RecipeCardLockOverlay>();
-            }
+                overlay = card.gameObject.AddComponent<RecipeCardLockOverlay>();
 
             overlay.Configure(cardLockIcon);
         }
@@ -532,8 +425,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
             UpdateCardLocks(cards2);
         }
 
-        private void UpdateCardLocks(
-            List<RecipeCardView> views)
+        private void UpdateCardLocks(List<RecipeCardView> views)
         {
             foreach (RecipeCardView card in views)
             {
@@ -557,16 +449,14 @@ namespace DuckSoup.Features.TwoPlayer.Views
             RectTransform[] origins,
             int index)
         {
-            return origins != null &&
-                   index < origins.Length
+            return origins != null && index < origins.Length
                 ? origins[index]
                 : null;
         }
 
         public void CancelAllDrags()
         {
-            foreach (TwoPlayerTokenView token
-                in tokenViews)
+            foreach (TwoPlayerTokenView token in tokenViews)
             {
                 if (token != null)
                     token.ForceCancel();

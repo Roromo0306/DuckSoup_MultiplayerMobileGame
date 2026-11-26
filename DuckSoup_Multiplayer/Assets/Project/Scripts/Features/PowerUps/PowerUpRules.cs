@@ -12,7 +12,6 @@ namespace DuckSoup.Features.PowerUps
         ExtraComboTime = 4
     }
 
-    // Pure C# rules. Sessions generate specials inside their existing token slots.
     public sealed class PowerUpRules
     {
         public float ComboWindowSeconds { get; private set; }
@@ -29,16 +28,40 @@ namespace DuckSoup.Features.PowerUps
         private readonly float instantWeight;
         private readonly float clockWeight;
 
-        // Compatible with the earlier smoke tests.
-        public PowerUpRules(float combo, float extra, float penalty, float multiplayerLock)
-            : this(combo, extra, penalty, multiplayerLock,
-                2.5f, 10f, 2, 75f, 10f, 7f, 3f, 5f)
+        public PowerUpRules(
+            float combo,
+            float extra,
+            float penalty,
+            float multiplayerLock)
+            : this(
+                combo,
+                extra,
+                penalty,
+                multiplayerLock,
+                2.5f,
+                10f,
+                2,
+                67f,
+                12f,
+                9f,
+                5f,
+                7f)
         {
         }
 
-        public PowerUpRules(float combo, float extra, float penalty, float multiplayerLock,
-            float interval, float lifetime, int maximum,
-            float none, float duck, float poison, float instant, float clock)
+        public PowerUpRules(
+            float combo,
+            float extra,
+            float penalty,
+            float multiplayerLock,
+            float interval,
+            float lifetime,
+            int maximum,
+            float none,
+            float duck,
+            float poison,
+            float instant,
+            float clock)
         {
             RequirePositive(combo, nameof(combo));
             RequirePositive(extra, nameof(extra));
@@ -46,7 +69,10 @@ namespace DuckSoup.Features.PowerUps
             RequirePositive(multiplayerLock, nameof(multiplayerLock));
             RequirePositive(interval, nameof(interval));
             RequirePositive(lifetime, nameof(lifetime));
-            if (maximum < 1) throw new ArgumentOutOfRangeException(nameof(maximum));
+
+            if (maximum < 1)
+                throw new ArgumentOutOfRangeException(nameof(maximum));
+
             RequireNonNegative(none, nameof(none));
             RequireNonNegative(duck, nameof(duck));
             RequireNonNegative(poison, nameof(poison));
@@ -60,6 +86,7 @@ namespace DuckSoup.Features.PowerUps
             SpawnInterval = interval;
             TokenLifetime = lifetime;
             MaxActiveSpecials = maximum;
+
             noneWeight = none;
             duckWeight = duck;
             poisonWeight = poison;
@@ -69,27 +96,56 @@ namespace DuckSoup.Features.PowerUps
 
         public PowerTokenKind Draw(IRandomSource random)
         {
-            float total = noneWeight + duckWeight + poisonWeight +
-                instantWeight + clockWeight;
-            if (total <= 0f) return PowerTokenKind.None;
-            float roll = (random.NextInt(0, 1000000) / 1000000f) * total;
-            if ((roll -= noneWeight) < 0f) return PowerTokenKind.None;
-            if ((roll -= duckWeight) < 0f) return PowerTokenKind.WildcardDuck;
-            if ((roll -= poisonWeight) < 0f) return PowerTokenKind.Poison;
-            if ((roll -= instantWeight) < 0f) return PowerTokenKind.CompleteRecipe;
+            float total =
+                noneWeight +
+                duckWeight +
+                poisonWeight +
+                instantWeight +
+                clockWeight;
+
+            if (total <= 0f)
+                return PowerTokenKind.None;
+
+            float roll =
+                (random.NextInt(0, 1000000) / 1000000f) * total;
+
+            if ((roll -= noneWeight) < 0f)
+                return PowerTokenKind.None;
+
+            if ((roll -= duckWeight) < 0f)
+                return PowerTokenKind.WildcardDuck;
+
+            if ((roll -= poisonWeight) < 0f)
+                return PowerTokenKind.Poison;
+
+            if ((roll -= instantWeight) < 0f)
+                return PowerTokenKind.CompleteRecipe;
+
             return PowerTokenKind.ExtraComboTime;
         }
 
-        private static void RequirePositive(float value, string name)
+        private static void RequirePositive(
+            float value,
+            string name)
         {
-            if (value <= 0f || float.IsNaN(value) || float.IsInfinity(value))
+            if (value <= 0f ||
+                float.IsNaN(value) ||
+                float.IsInfinity(value))
+            {
                 throw new ArgumentOutOfRangeException(name);
+            }
         }
 
-        private static void RequireNonNegative(float value, string name)
+        private static void RequireNonNegative(
+            float value,
+            string name)
         {
-            if (value < 0f || float.IsNaN(value) || float.IsInfinity(value))
+            if (value < 0f ||
+                float.IsNaN(value) ||
+                float.IsInfinity(value))
+            {
                 throw new ArgumentOutOfRangeException(name);
+            }
         }
     }
 }

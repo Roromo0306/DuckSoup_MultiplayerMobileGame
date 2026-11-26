@@ -1,4 +1,3 @@
-
 using System;
 using DuckSoup.Features.GameFeel.UI;
 using DuckSoup.Features.Menu.Models;
@@ -8,7 +7,6 @@ using UnityEngine.UI;
 
 namespace DuckSoup.Features.TwoPlayer.Views
 {
-    // Resultados de 2P: patitos, puntos, WINNER/LOSER, NEXT y lluvia UI.
     public sealed class TwoPlayerResultsView : MonoBehaviour
     {
         [Header("Results Panel")]
@@ -28,11 +26,13 @@ namespace DuckSoup.Features.TwoPlayer.Views
         [Header("Loser Shade")]
         [SerializeField] private Image player1LoserShade;
         [SerializeField] private Image player2LoserShade;
+
         [SerializeField, Range(0f, 1f)]
         private float loserShadeAlpha = 0.55f;
 
         [Header("Next")]
         [SerializeField] private Button nextButton;
+
         [SerializeField, Min(0.1f)]
         private float nextDelaySeconds = 2f;
 
@@ -40,14 +40,28 @@ namespace DuckSoup.Features.TwoPlayer.Views
         [SerializeField] private ResultStatusFeel player1StatusFeel;
         [SerializeField] private ResultStatusFeel player2StatusFeel;
 
-        [Header("New UI rain effects - one per PLAYER PANEL")]
+        [Header("Result effects")]
         [SerializeField] private UIResultRainEmitter player1ResultFX;
         [SerializeField] private UIResultRainEmitter player2ResultFX;
 
-        [Header("Old effects - kept only to stop them")]
+        [Header("Old effects")]
         [SerializeField] private UIConfettiEmitter confetti;
         [SerializeField] private ParticleSystem leftNativeConfetti;
         [SerializeField] private ParticleSystem rightNativeConfetti;
+
+        [Header("Duck animation controllers")]
+        [SerializeField]
+        private RuntimeAnimatorController[] duckControllers =
+            new RuntimeAnimatorController[4];
+
+        [SerializeField] private Animator player1DuckAnimator;
+        [SerializeField] private Animator player2DuckAnimator;
+
+        [SerializeField]
+        private string victoryStateName = "Base Layer.Victory";
+
+        [SerializeField]
+        private string defeatStateName = "Base Layer.Defeat";
 
         public event Action NextRequested;
 
@@ -63,7 +77,6 @@ namespace DuckSoup.Features.TwoPlayer.Views
             Hide();
         }
 
-        // Mantiene la firma que utiliza TwoPlayerGameplayBootstrap.
         public void Show(
             int player1Duck,
             int player2Duck,
@@ -89,13 +102,8 @@ namespace DuckSoup.Features.TwoPlayer.Views
                 ? "DRAW"
                 : player1Wins ? "LOSER" : "WINNER";
 
-            SetShade(
-                player1LoserShade,
-                !isDraw && !player1Wins);
-
-            SetShade(
-                player2LoserShade,
-                !isDraw && player1Wins);
+            SetShade(player1LoserShade, !isDraw && !player1Wins);
+            SetShade(player2LoserShade, !isDraw && player1Wins);
 
             showing = true;
             nextUnlocked = false;
@@ -105,8 +113,18 @@ namespace DuckSoup.Features.TwoPlayer.Views
             nextButton.gameObject.SetActive(false);
             resultsPanel.SetActive(true);
 
-            // Limpiar las explosiones antiguas y los efectos
-            // de partidas anteriores.
+            PlayDuckAnimation(
+                player1DuckAnimator,
+                player1Duck,
+                isDraw,
+                player1Wins);
+
+            PlayDuckAnimation(
+                player2DuckAnimator,
+                player2Duck,
+                isDraw,
+                !player1Wins);
+
             StopOldEffects();
             player1ResultFX?.StopEffect();
             player2ResultFX?.StopEffect();
@@ -131,8 +149,6 @@ namespace DuckSoup.Features.TwoPlayer.Views
                             : ResultStatusFeel.Status.Winner);
             }
 
-            // Cada efecto pertenece al PANEL del jugador,
-            // no a una posicion fija de la pantalla.
             if (!isDraw)
             {
                 if (player1Wins)
@@ -151,10 +167,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
         private void SetDuck(Image image, int index)
         {
             if (index < 0 || index >= duckSprites.Length)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(index));
-            }
+                throw new ArgumentOutOfRangeException(nameof(index));
 
             image.sprite = duckSprites[index];
             image.enabled = duckSprites[index] != null;
@@ -162,12 +175,70 @@ namespace DuckSoup.Features.TwoPlayer.Views
             image.preserveAspect = true;
         }
 
+        private void PlayDuckAnimation(
+            Animator animator,
+            int duckIndex,
+            bool isDraw,
+            bool wins)
+        {
+            if (animator == null)
+                return;
+
+            StopDuckAnimation(animator);
+
+            if (isDraw)
+                return;
+
+            if (duckControllers == null ||
+                duckIndex < 0 ||
+                duckIndex >= duckControllers.Length ||
+                duckControllers[duckIndex] == null)
+            {
+                Debug.LogWarning(
+                    "[Results] Assign four duck animation controllers.",
+                    this);
+
+                return;
+            }
+
+            animator.runtimeAnimatorController =
+                duckControllers[duckIndex];
+
+            animator.updateMode = AnimatorUpdateMode.UnscaledTime;
+            animator.enabled = true;
+            animator.Rebind();
+
+            int state = Animator.StringToHash(
+                wins ? victoryStateName : defeatStateName);
+
+            if (!animator.HasState(0, state))
+            {
+                Debug.LogError(
+                    "[Results] Controller needs Victory and Defeat " +
+                    "states on Base Layer.",
+                    this);
+
+                animator.enabled = false;
+                return;
+            }
+
+            animator.Play(state, 0, 0f);
+            animator.Update(0f);
+        }
+
+        private static void StopDuckAnimation(Animator animator)
+        {
+            if (animator == null)
+                return;
+
+            animator.enabled = false;
+            animator.runtimeAnimatorController = null;
+        }
+
         private void SetShade(Image shade, bool darken)
         {
             shade.enabled = darken;
-            shade.color = new Color(
-                0f, 0f, 0f, loserShadeAlpha);
-
+            shade.color = new Color(0f, 0f, 0f, loserShadeAlpha);
             shade.raycastTarget = false;
         }
 
@@ -193,7 +264,6 @@ namespace DuckSoup.Features.TwoPlayer.Views
 
             nextUnlocked = false;
             nextButton.interactable = false;
-
             NextRequested?.Invoke();
         }
 
@@ -202,9 +272,11 @@ namespace DuckSoup.Features.TwoPlayer.Views
             showing = false;
             nextUnlocked = false;
 
+            StopDuckAnimation(player1DuckAnimator);
+            StopDuckAnimation(player2DuckAnimator);
+
             player1StatusFeel?.StopNow();
             player2StatusFeel?.StopNow();
-
             player1ResultFX?.StopEffect();
             player2ResultFX?.StopEffect();
 

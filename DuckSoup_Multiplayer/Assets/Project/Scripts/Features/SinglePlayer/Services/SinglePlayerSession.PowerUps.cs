@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using DuckSoup.Features.PowerUps;
@@ -19,13 +18,36 @@ namespace DuckSoup.Features.SinglePlayer.Services
         private IngredientType lastPoisonIngredient =
             IngredientType.None;
 
+        private PowerUpRules powerUpRules;
+
+        private float comboRemaining;
+        private float comboTotalSeconds;
+        private int comboCount;
+        private string lastCompletedCardId;
+
+        public event Action<int, int> ComboScored;
+
+        public bool PowerUpsEnabled => powerUpRules != null;
+        public float ComboRemaining => comboRemaining;
+        public int CurrentComboCount => comboCount;
+        public string LastCompletedCardId => lastCompletedCardId;
+
+        public int ActualRecipesCompleted { get; private set; }
+
+        public float ComboFill01 =>
+            comboTotalSeconds > 0f
+                ? (float)Math.Max(
+                    0.0,
+                    Math.Min(1.0, comboRemaining / comboTotalSeconds))
+                : 0f;
+
         public PowerTokenKind GetPowerKind(string tokenId)
         {
-            int i = FindToken(tokenId);
+            int index = FindToken(tokenId);
 
-            return i < 0
+            return index < 0
                 ? PowerTokenKind.None
-                : specialKinds[i];
+                : specialKinds[index];
         }
 
         public bool TryDeliverSpecial(
@@ -36,41 +58,45 @@ namespace DuckSoup.Features.SinglePlayer.Services
         {
             completed = false;
 
-            if (!Owns(tokenId, pointerId) || IsTimeUp)
+            if (!Owns(tokenId, pointerId))
                 return false;
 
-            int slot = FindToken(tokenId);
-
-            if (slot < 0)
-                return false;
-
-            PowerTokenKind kind = specialKinds[slot];
-
-            if (kind == PowerTokenKind.None ||
-                kind == PowerTokenKind.Poison)
+            try
             {
-                return false;
-            }
+                if (IsTimeUp)
+                    return false;
 
-            bool accepted = TryUsePower(
-                kind,
-                cardId,
-                out completed);
+                int slot = FindToken(tokenId);
 
-            if (accepted)
-            {
+                if (slot < 0 ||
+                    specialKinds[slot] == PowerTokenKind.None)
+                {
+                    return false;
+                }
+
+                PowerTokenKind kind = specialKinds[slot];
+
+                bool accepted = kind == PowerTokenKind.Poison
+                    ? ApplyPoop(cardId)
+                    : TryUsePower(kind, cardId, out completed);
+
+                if (!accepted)
+                    return false;
+
                 ConsumeSpecial(
                     slot,
                     tokenId,
                     pointerId,
-                    IngredientType.None);
+                    kind == PowerTokenKind.Poison
+                        ? lastPoisonIngredient
+                        : IngredientType.None);
+
+                return true;
             }
-            else
+            finally
             {
                 CancelGesture(tokenId, pointerId);
             }
-
-            return accepted;
         }
 
         public bool TryTouchPoison(
@@ -78,30 +104,10 @@ namespace DuckSoup.Features.SinglePlayer.Services
             int pointerId,
             out bool removedTick)
         {
+            // Compatibilidad con llamadas antiguas.
+            // La caca se aplica mediante una entrega sobre una carta.
             removedTick = false;
-
-            if (!Owns(tokenId, pointerId) || IsTimeUp)
-                return false;
-
-            int slot = FindToken(tokenId);
-
-            if (slot < 0 ||
-                specialKinds[slot] != PowerTokenKind.Poison)
-            {
-                return false;
-            }
-
-            removedTick = ApplyPoison();
-
-            ConsumeSpecial(
-                slot,
-                tokenId,
-                pointerId,
-                removedTick
-                    ? lastPoisonIngredient
-                    : IngredientType.None);
-
-            return true;
+            return false;
         }
 
         private void ConsumeSpecial(
@@ -128,7 +134,7 @@ namespace DuckSoup.Features.SinglePlayer.Services
             refillTimers[slot] = refillSeconds;
         }
 
-        private bool TickSpecialTokens(float dt)
+        private bool TickSpecialTokens(float deltaTime)
         {
             bool changed = false;
 
@@ -143,7 +149,7 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 if (tokenOwners.ContainsKey(tokens[i].Id))
                     continue;
 
-                specialLeft[i] -= dt;
+                specialLeft[i] -= deltaTime;
 
                 if (specialLeft[i] <= 0f)
                 {
@@ -153,25 +159,25 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 }
             }
 
-            spawnCountdown -= dt;
+            spawnCountdown -= deltaTime;
 
             if (spawnCountdown > 0f)
                 return changed;
 
             spawnCountdown = powerUpRules.SpawnInterval;
 
-            int count = 0;
+            int activeSpecials = 0;
 
             for (int i = 0; i < TokenSlots; i++)
             {
                 if (specialKinds[i] != PowerTokenKind.None)
-                    count++;
+                    activeSpecials++;
             }
 
-            if (count >= powerUpRules.MaxActiveSpecials)
+            if (activeSpecials >= powerUpRules.MaxActiveSpecials)
                 return changed;
 
-            var slots = PowerTokenAvailability.GetEligibleSlots(
+            List<int> slots = PowerTokenAvailability.GetEligibleSlots(
                 AllCards(),
                 tokens,
                 pendingIngredients,
@@ -187,8 +193,7 @@ namespace DuckSoup.Features.SinglePlayer.Services
             if (drawn == PowerTokenKind.None)
                 return changed;
 
-            int chosen = slots[
-                random.NextInt(0, slots.Count)];
+            int chosen = slots[random.NextInt(0, slots.Count)];
 
             specialKinds[chosen] = drawn;
             specialLeft[chosen] = powerUpRules.TokenLifetime;
@@ -200,8 +205,12 @@ namespace DuckSoup.Features.SinglePlayer.Services
         {
             for (int i = 0; i < TokenSlots; i++)
             {
-                if (specialKinds[i] == PowerTokenKind.None)
+                if (specialKinds[i] == PowerTokenKind.None ||
+                    (tokens[i] != null &&
+                     tokenOwners.ContainsKey(tokens[i].Id)))
+                {
                     continue;
+                }
 
                 specialKinds[i] = PowerTokenKind.None;
                 specialLeft[i] = 0f;
@@ -213,42 +222,6 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 }
             }
         }
-
-        // -----------------------------------------------
-        // COMBO SYSTEM
-        // -----------------------------------------------
-
-        private PowerUpRules powerUpRules;
-
-        private float comboRemaining;
-        private float comboTotalSeconds;
-
-        private int comboCount;
-        private string lastCompletedCardId;
-
-        public bool PowerUpsEnabled => powerUpRules != null;
-
-        public float ComboRemaining => comboRemaining;
-
-        public int CurrentComboCount => comboCount;
-
-        public string LastCompletedCardId =>
-            lastCompletedCardId;
-
-        public int ActualRecipesCompleted
-        {
-            get;
-            private set;
-        }
-
-        public float ComboFill01 =>
-            comboTotalSeconds > 0f
-                ? (float)Math.Max(
-                    0.0,
-                    Math.Min(
-                        1.0,
-                        comboRemaining / comboTotalSeconds))
-                : 0f;
 
         public bool IsCompletedCard(string cardId)
         {
@@ -278,32 +251,24 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 return;
             }
 
-            // Primera receta: comienza el temporizador.
             if (comboRemaining <= 0f)
             {
-                comboRemaining =
-                    powerUpRules.ComboWindowSeconds;
-
+                comboRemaining = powerUpRules.ComboWindowSeconds;
                 comboTotalSeconds = comboRemaining;
                 comboCount = 0;
             }
 
-            // Primera +1, segunda +2, tercera +3.
-            comboCount = Math.Min(
-                RecipeSlots,
-                comboCount + 1);
-
+            comboCount = Math.Min(RecipeSlots, comboCount + 1);
             CompletedRecipes += comboCount;
 
-            lastCompletedCardId =
-                cards[cardIndex].CardId;
+            if (comboCount >= 2)
+                ComboScored?.Invoke(cardIndex, comboCount);
 
-            // La carta espera hasta que termine
-            // el temporizador compartido.
+            lastCompletedCardId = cards[cardIndex].CardId;
             recipeTimers[cardIndex] = -1f;
         }
 
-        private bool AdvancePowerUps(float dt)
+        private bool AdvancePowerUps(float deltaTime)
         {
             if (powerUpRules == null)
                 return false;
@@ -314,36 +279,30 @@ namespace DuckSoup.Features.SinglePlayer.Services
             {
                 comboRemaining = Math.Max(
                     0f,
-                    comboRemaining - dt);
+                    comboRemaining - deltaTime);
 
-                if (comboRemaining <= 0f)
+                if (comboRemaining <= 0f ||
+                    comboCount >= RecipeSlots)
                 {
                     RestoreSpecialTokensBeforeNewHand();
 
                     var replacedSlots = new List<int>();
 
-                    // Buscar SOLO las cartas completadas.
                     for (int i = 0; i < RecipeSlots; i++)
                     {
-                        if (cards[i] == null ||
-                            !cards[i].IsComplete)
-                        {
+                        if (cards[i] == null || !cards[i].IsComplete)
                             continue;
-                        }
 
                         replacedSlots.Add(i);
                         cards[i] = null;
                         recipeTimers[i] = -1f;
                     }
 
-                    // Las cartas incompletas mantienen
-                    // sus requisitos y progreso.
                     foreach (int slot in replacedSlots)
-                    {
                         cards[slot] = NewCard();
-                    }
 
                     comboCount = 0;
+                    comboRemaining = 0f;
                     comboTotalSeconds = 0f;
                     lastCompletedCardId = null;
 
@@ -351,7 +310,7 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 }
             }
 
-            return TickSpecialTokens(dt) || changed;
+            return TickSpecialTokens(deltaTime) || changed;
         }
 
         public bool TryUsePower(
@@ -374,12 +333,8 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 if (comboRemaining <= 0f)
                     return false;
 
-                comboRemaining +=
-                    powerUpRules.ExtraComboSeconds;
-
-                comboTotalSeconds +=
-                    powerUpRules.ExtraComboSeconds;
-
+                comboRemaining += powerUpRules.ExtraComboSeconds;
+                comboTotalSeconds += powerUpRules.ExtraComboSeconds;
                 return true;
             }
 
@@ -393,17 +348,11 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 foreach (IngredientType ingredient
                     in card.Definition.RequiredIngredients)
                 {
-                    if (!card.Progress.NeedsIngredient(
-                        ingredient))
-                    {
+                    if (!card.Progress.NeedsIngredient(ingredient))
                         continue;
-                    }
 
-                    if (!card.Progress.TryAddIngredient(
-                        ingredient))
-                    {
+                    if (!card.Progress.TryAddIngredient(ingredient))
                         return false;
-                    }
 
                     break;
                 }
@@ -413,17 +362,11 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 foreach (IngredientType ingredient
                     in card.Definition.RequiredIngredients)
                 {
-                    if (!card.Progress.NeedsIngredient(
-                        ingredient))
-                    {
+                    if (!card.Progress.NeedsIngredient(ingredient))
                         continue;
-                    }
 
-                    if (!card.Progress.TryAddIngredient(
-                        ingredient))
-                    {
+                    if (!card.Progress.TryAddIngredient(ingredient))
                         return false;
-                    }
                 }
             }
             else
@@ -440,48 +383,55 @@ namespace DuckSoup.Features.SinglePlayer.Services
             return true;
         }
 
-        // -----------------------------------------------
-        // POISON AND WRONG DELIVERY
-        // -----------------------------------------------
-
         public bool ApplyPoison()
+        {
+            // Se conserva la firma antigua.
+            // Ahora se necesita una carta de destino.
+            return false;
+        }
+
+        public bool ApplyPoop(string cardId)
         {
             if (powerUpRules == null || IsTimeUp)
                 return false;
 
-            int bestSlot = -1;
-            int bestProgress = 0;
+            int index = FindCard(cardId);
 
-            for (int i = 0; i < RecipeSlots; i++)
+            if (index < 0 ||
+                cards[index] == null ||
+                cards[index].IsComplete ||
+                CountProgress(cards[index]) == 0)
             {
-                if (cards[i] == null ||
-                    cards[i].IsComplete)
-                {
-                    continue;
-                }
-
-                int completed = CountProgress(cards[i]);
-
-                if (completed > bestProgress)
-                {
-                    bestProgress = completed;
-                    bestSlot = i;
-                }
+                return false;
             }
 
-            if (bestSlot < 0)
-                return false;
+            cards[index] = RebuildWithoutOneTick(
+                cards[index],
+                out lastPoisonIngredient);
 
-            IngredientType lostType;
-
-            cards[bestSlot] = RebuildWithoutOneTick(
-                cards[bestSlot],
-                out lostType);
-
-            lastPoisonIngredient = lostType;
-            EnsureIngredientAvailable(lostType);
-
+            EnsureIngredientAvailable(lastPoisonIngredient);
             return true;
+        }
+
+        public bool IsWrongIngredientForCard(
+            string tokenId,
+            string cardId)
+        {
+            int token = FindToken(tokenId);
+            int card = FindCard(cardId);
+
+            if (powerUpRules == null ||
+                IsTimeUp ||
+                token < 0 ||
+                card < 0 ||
+                specialKinds[token] != PowerTokenKind.None ||
+                cards[card].IsComplete)
+            {
+                return false;
+            }
+
+            return !cards[card].Progress.NeedsIngredient(
+                tokens[token].Ingredient);
         }
 
         public void ApplyWrongDeliveryPenalty()
@@ -501,21 +451,16 @@ namespace DuckSoup.Features.SinglePlayer.Services
             }
         }
 
-        private static int CountProgress(
-            RecipeCardModel card)
+        private static int CountProgress(RecipeCardModel card)
         {
             int count = 0;
-
             var visited = new HashSet<IngredientType>();
 
             foreach (IngredientType type
                 in card.Definition.RequiredIngredients)
             {
                 if (visited.Add(type))
-                {
-                    count +=
-                        card.Progress.GetCompletedCount(type);
-                }
+                    count += card.Progress.GetCompletedCount(type);
             }
 
             return count;
@@ -544,9 +489,7 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 }
             }
 
-            removedIngredient =
-                ordered[ordered.Count - 1];
-
+            removedIngredient = ordered[ordered.Count - 1];
             ordered.RemoveAt(ordered.Count - 1);
 
             var rebuilt = new RecipeCardModel(
@@ -554,15 +497,12 @@ namespace DuckSoup.Features.SinglePlayer.Services
                 oldCard.Definition);
 
             foreach (IngredientType type in ordered)
-            {
                 rebuilt.Progress.TryAddIngredient(type);
-            }
 
             return rebuilt;
         }
 
-        private void EnsureIngredientAvailable(
-            IngredientType needed)
+        private void EnsureIngredientAvailable(IngredientType needed)
         {
             var demand = new Dictionary<IngredientType, int>();
             var stock = new Dictionary<IngredientType, int>();
@@ -580,43 +520,31 @@ namespace DuckSoup.Features.SinglePlayer.Services
                     if (!visited.Add(type))
                         continue;
 
-                    int rest =
+                    int remaining =
                         card.Progress.GetRequiredCount(type) -
                         card.Progress.GetCompletedCount(type);
 
-                    demand[type] =
-                        GetCount(demand, type) + rest;
+                    demand[type] = GetCount(demand, type) + remaining;
                 }
             }
 
-            foreach (IngredientType type
-                in GetStockIncludingPending())
-            {
-                stock[type] =
-                    GetCount(stock, type) + 1;
-            }
+            foreach (IngredientType type in GetStockIncludingPending())
+                stock[type] = GetCount(stock, type) + 1;
 
-            if (GetCount(stock, needed) >=
-                GetCount(demand, needed))
-            {
+            if (GetCount(stock, needed) >= GetCount(demand, needed))
                 return;
-            }
 
             for (int i = 0; i < TokenSlots; i++)
             {
                 if (specialKinds[i] != PowerTokenKind.None)
                     continue;
 
-                IngredientType type =
-                    tokens[i] != null
-                        ? tokens[i].Ingredient
-                        : pendingIngredients[i];
+                IngredientType type = tokens[i] != null
+                    ? tokens[i].Ingredient
+                    : pendingIngredients[i];
 
-                if (GetCount(stock, type) <=
-                    GetCount(demand, type))
-                {
+                if (GetCount(stock, type) <= GetCount(demand, type))
                     continue;
-                }
 
                 if (tokens[i] != null &&
                     tokenOwners.ContainsKey(tokens[i].Id))
@@ -646,8 +574,8 @@ namespace DuckSoup.Features.SinglePlayer.Services
             Dictionary<IngredientType, int> map,
             IngredientType type)
         {
-            return map.TryGetValue(type, out int n)
-                ? n
+            return map.TryGetValue(type, out int count)
+                ? count
                 : 0;
         }
     }

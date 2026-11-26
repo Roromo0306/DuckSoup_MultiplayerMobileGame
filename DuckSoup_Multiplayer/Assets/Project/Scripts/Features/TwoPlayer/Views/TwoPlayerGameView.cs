@@ -1,5 +1,5 @@
-
 using System;
+using DuckSoup.Features.UI;
 using DuckSoup.Features.Audio;
 using DuckSoup.Features.GameFeel.Gameplay;
 using DuckSoup.Features.GameFeel.UI;
@@ -10,22 +10,23 @@ using UnityEngine;
 
 namespace DuckSoup.Features.TwoPlayer.Views
 {
-    public sealed class TwoPlayerGameView : MonoBehaviour, ITwoPlayerFlowView
+    public sealed class TwoPlayerGameView :
+        MonoBehaviour, ITwoPlayerFlowView
     {
         [Header("Gameplay")]
         [SerializeField] private TwoPlayerBoardView board;
         [SerializeField] private TextMeshProUGUI timerText;
         [SerializeField] private TextMeshProUGUI overlayText;
 
-        [Header("Old score (optional; leave empty)")]
+        [Header("Old score")]
         [SerializeField] private TextMeshProUGUI scoreText;
 
-        [Header("New 3-text score: P1 - P2")]
+        [Header("New 3-text score")]
         [SerializeField] private TextMeshProUGUI player1ScoreText;
         [SerializeField] private TextMeshProUGUI scoreSeparator;
         [SerializeField] private TextMeshProUGUI player2ScoreText;
 
-        [Header("Optional score animation")]
+        [Header("Score animation")]
         [SerializeField] private ScoreNumberFeel player1ScoreNumber;
         [SerializeField] private ScoreNumberFeel player2ScoreNumber;
 
@@ -34,13 +35,19 @@ namespace DuckSoup.Features.TwoPlayer.Views
         [SerializeField] private UIShakeFeel overlayShake;
 
         [SerializeField] private GameplayOverlaySound overlaySound;
-        private string roundTitle;
 
+        [Header("Countdown images")]
+        [SerializeField] private CountdownSpriteView countdownSprites;
+
+        private string roundTitle;
         private TwoPlayerSession session;
+
         private int lastLoggedPlayer1 = int.MinValue;
         private int lastLoggedPlayer2 = int.MinValue;
 
-        public void Initialize(TwoPlayerSession newSession, string title = null)
+        public void Initialize(
+            TwoPlayerSession newSession,
+            string title = null)
         {
             session = newSession ??
                 throw new ArgumentNullException(nameof(newSession));
@@ -55,12 +62,13 @@ namespace DuckSoup.Features.TwoPlayer.Views
                     "TwoPlayerGameView: asigna Board, Timer Text, " +
                     "Overlay Text, Player1 Score Text y Player2 Score Text.");
             }
+
             roundTitle = title;
 
             if (overlaySound == null)
                 overlaySound = overlayText.GetComponent<GameplayOverlaySound>();
-            overlayText.gameObject.SetActive(false);
 
+            overlayText.gameObject.SetActive(false);
             player1ScoreText.gameObject.SetActive(true);
             player2ScoreText.gameObject.SetActive(true);
 
@@ -100,23 +108,40 @@ namespace DuckSoup.Features.TwoPlayer.Views
         public void ShowOverlay(string message)
         {
             bool finishCue =
-                string.Equals(message, "FINISH", StringComparison.OrdinalIgnoreCase) ||
-                message.StartsWith("TIME UP", StringComparison.OrdinalIgnoreCase);
+                string.Equals(
+                    message,
+                    "FINISH",
+                    StringComparison.OrdinalIgnoreCase) ||
+                message.StartsWith(
+                    "TIME UP",
+                    StringComparison.OrdinalIgnoreCase);
 
             bool intermissionCue =
-                message.StartsWith("ROUND 1 COMPLETE!", StringComparison.Ordinal);
+                message.StartsWith(
+                    "ROUND 1 COMPLETE!",
+                    StringComparison.Ordinal);
 
             if (overlaySound != null)
                 overlaySound.SetOverlayCue(message);
 
-            overlayText.text = finishCue || intermissionCue ? "FINISH" : message;
+            overlayText.enabled =
+                countdownSprites == null ||
+                !countdownSprites.TryShow(message);
+
+            overlayText.text =
+                finishCue || intermissionCue
+                    ? "FINISH"
+                    : message;
+
             overlayText.gameObject.SetActive(true);
 
             if (overlayShake != null && finishCue)
                 overlayShake.Shake();
         }
+
         public void HideOverlay()
         {
+            countdownSprites?.Hide();
             overlayText.gameObject.SetActive(false);
         }
 
@@ -130,13 +155,12 @@ namespace DuckSoup.Features.TwoPlayer.Views
             int player1Score,
             int player2Score)
         {
-            int total = Mathf.CeilToInt(
-                Mathf.Max(0f, remainingSeconds));
+            int total =
+                Mathf.CeilToInt(Mathf.Max(0f, remainingSeconds));
 
             timerText.text =
                 $"{total / 60:00}:{total % 60:00}";
 
-            // Actualizamos los textos directamente.
             player1ScoreText.text = player1Score.ToString();
             player2ScoreText.text = player2Score.ToString();
 
@@ -151,7 +175,6 @@ namespace DuckSoup.Features.TwoPlayer.Views
                 lastLoggedPlayer2 = player2Score;
             }
 
-            // El efecto pop es opcional.
             if (player1ScoreNumber != null)
                 player1ScoreNumber.Show(player1Score);
 
@@ -163,4 +186,3 @@ namespace DuckSoup.Features.TwoPlayer.Views
         }
     }
 }
-

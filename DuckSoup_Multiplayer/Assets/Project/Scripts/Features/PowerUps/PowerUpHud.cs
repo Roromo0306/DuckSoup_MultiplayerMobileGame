@@ -1,4 +1,4 @@
-
+using System.Collections.Generic;
 using DuckSoup.Domain;
 using DuckSoup.Features.Round.Views;
 using DuckSoup.Features.SinglePlayer.Services;
@@ -16,52 +16,91 @@ namespace DuckSoup.Features.PowerUps
         [SerializeField] private TextMeshProUGUI player1LockText;
         [SerializeField] private TextMeshProUGUI player2LockText;
 
-        [Header("Existing power-up messages")]
+        [Header("Power-up messages")]
         [SerializeField] private TextMeshProUGUI feedbackText;
+
         [SerializeField, Min(0.1f)]
         private float feedbackSeconds = 1.2f;
 
-        [Header("Recipe roots - assign in the Inspector")]
+        [Header("Recipe roots")]
         [SerializeField] private Transform singlePlayerCardsRoot;
         [SerializeField] private Transform player1CardsRoot;
         [SerializeField] private Transform player2CardsRoot;
 
+        private struct ComboPopup
+        {
+            public PlayerId Player;
+            public int Slot;
+            public int Multiplier;
+        }
+
+        private readonly Queue<ComboPopup> pending =
+            new Queue<ComboPopup>();
+
         private SinglePlayerSession single;
         private TwoPlayerSession multi;
-        private float feedbackLeft;
-
-        private int lastCountP1;
-        private int lastCountP2;
 
         private RecipeCardView[] cards1;
         private RecipeCardView[] cards2;
-        private bool warnedMissingRoot;
+
+        private float feedbackLeft;
 
         public void Initialize(SinglePlayerSession session)
         {
+            Unsubscribe();
+
             single = session;
             multi = null;
-            lastCountP1 = 0;
-            lastCountP2 = 0;
+
             cards1 = null;
             cards2 = null;
+            pending.Clear();
+
+            single.ComboScored += QueueSingleCombo;
+
             HideOldText();
         }
 
         public void Initialize(TwoPlayerSession session)
         {
+            Unsubscribe();
+
             multi = session;
             single = null;
-            lastCountP1 = 0;
-            lastCountP2 = 0;
+
             cards1 = null;
             cards2 = null;
+            pending.Clear();
+
+            multi.ComboScored += QueueCombo;
+
             HideOldText();
+        }
+
+        private void QueueSingleCombo(
+            int slot,
+            int multiplier)
+        {
+            QueueCombo(PlayerId.Player1, slot, multiplier);
+        }
+
+        private void QueueCombo(
+            PlayerId player,
+            int slot,
+            int multiplier)
+        {
+            pending.Enqueue(new ComboPopup
+            {
+                Player = player,
+                Slot = slot,
+                Multiplier = multiplier
+            });
         }
 
         public void ShowFeedback(string message)
         {
-            if (feedbackText == null) return;
+            if (feedbackText == null)
+                return;
 
             feedbackText.text = message;
             feedbackText.enabled = true;
@@ -70,117 +109,103 @@ namespace DuckSoup.Features.PowerUps
 
         private void HideOldText()
         {
-            if (combo1Text != null) combo1Text.enabled = false;
-            if (combo2Text != null) combo2Text.enabled = false;
-            if (player1LockText != null) player1LockText.enabled = false;
-            if (player2LockText != null) player2LockText.enabled = false;
+            if (combo1Text != null)
+                combo1Text.enabled = false;
+
+            if (combo2Text != null)
+                combo2Text.enabled = false;
+
+            if (player1LockText != null)
+                player1LockText.enabled = false;
+
+            if (player2LockText != null)
+                player2LockText.enabled = false;
         }
 
         private void Update()
         {
-            if (single != null)
+            if (single != null &&
+                TryBind(ref cards1, singlePlayerCardsRoot))
             {
-                if (TryBind(ref cards1, singlePlayerCardsRoot))
+                foreach (RecipeCardView card in cards1)
                 {
-                    foreach (RecipeCardView card in cards1)
-                    {
-                        GetOverlay(card).Render(
-                            single.IsCompletedCard(card.CardId),
-                            single.ComboFill01);
-                    }
-
-                    int count = single.CurrentComboCount;
-
-                    if (count > lastCountP1 && count >= 2)
-                    {
-                        PopFor(
-                            cards1,
-                            single.LastCompletedCardId,
-                            count);
-                    }
-
-                    lastCountP1 = count;
+                    GetOverlay(card).Render(
+                        single.IsCompletedCard(card.CardId),
+                        single.ComboFill01);
                 }
             }
-            else if (multi != null)
+
+            if (multi != null)
             {
-                if (TryBind(ref cards1, player1CardsRoot))
+                RenderPlayer(
+                    ref cards1,
+                    player1CardsRoot,
+                    PlayerId.Player1);
+
+                RenderPlayer(
+                    ref cards2,
+                    player2CardsRoot,
+                    PlayerId.Player2);
+            }
+
+            int count = pending.Count;
+
+            for (int i = 0; i < count; i++)
+            {
+                ComboPopup next = pending.Dequeue();
+
+                RecipeCardView[] cards =
+                    next.Player == PlayerId.Player1
+                        ? cards1
+                        : cards2;
+
+                if (cards == null)
                 {
-                    UpdatePlayer(
-                        cards1,
-                        PlayerId.Player1,
-                        ref lastCountP1);
+                    pending.Enqueue(next);
+                    continue;
                 }
 
-                if (TryBind(ref cards2, player2CardsRoot))
+                if (next.Slot >= 0 && next.Slot < cards.Length)
                 {
-                    UpdatePlayer(
-                        cards2,
-                        PlayerId.Player2,
-                        ref lastCountP2);
+                    GetOverlay(cards[next.Slot]).PlayCombo(
+                        next.Multiplier);
                 }
             }
 
             if (feedbackText != null && feedbackLeft > 0f)
             {
-                feedbackLeft -= Time.unscaledDeltaTime;
+                feedbackLeft -= Time.deltaTime;
 
                 if (feedbackLeft <= 0f)
-                {
                     feedbackText.enabled = false;
-                }
             }
         }
 
-        private void UpdatePlayer(
-            RecipeCardView[] views,
-            PlayerId player,
-            ref int previousCount)
+        private void RenderPlayer(
+            ref RecipeCardView[] cards,
+            Transform root,
+            PlayerId player)
         {
-            float fill = multi.GetComboFill01(player);
+            if (!TryBind(ref cards, root))
+                return;
 
-            foreach (RecipeCardView card in views)
+            foreach (RecipeCardView card in cards)
             {
                 GetOverlay(card).Render(
-                    multi.IsCompletedCard(
-                        player,
-                        card.CardId),
-                    fill);
+                    multi.IsCompletedCard(player, card.CardId),
+                    multi.GetComboFill01(player));
             }
-
-            int count = multi.GetComboCount(player);
-
-            if (count > previousCount && count >= 2)
-            {
-                PopFor(
-                    views,
-                    multi.GetLastCompletedCardId(player),
-                    count);
-            }
-
-            previousCount = count;
         }
 
-        private bool TryBind(
-            ref RecipeCardView[] views,
+        private static bool TryBind(
+            ref RecipeCardView[] cards,
             Transform root)
         {
-            if (views != null && views.Length == 3)
+            if (cards != null && cards.Length == 3)
                 return true;
 
             if (root == null)
-            {
-                if (!warnedMissingRoot)
-                {
-                    Debug.LogWarning(
-                        "[PowerUpHud] Asigna los CardsRoot en el Inspector.",
-                        this);
-
-                    warnedMissingRoot = true;
-                }
-
                 return false;
-            }
 
             RecipeCardView[] found =
                 root.GetComponentsInChildren<RecipeCardView>(true);
@@ -188,13 +213,7 @@ namespace DuckSoup.Features.PowerUps
             if (found.Length != 3)
                 return false;
 
-            views = found;
-
-            foreach (RecipeCardView card in views)
-            {
-                GetOverlay(card);
-            }
-
+            cards = found;
             return true;
         }
 
@@ -204,31 +223,23 @@ namespace DuckSoup.Features.PowerUps
             RecipeComboOverlay overlay =
                 card.GetComponent<RecipeComboOverlay>();
 
-            if (overlay == null)
-            {
-                overlay = card.gameObject.AddComponent<
-                    RecipeComboOverlay>();
-            }
-
-            return overlay;
+            return overlay != null
+                ? overlay
+                : card.gameObject.AddComponent<RecipeComboOverlay>();
         }
 
-        private static void PopFor(
-            RecipeCardView[] cards,
-            string completedId,
-            int multiplier)
+        private void Unsubscribe()
         {
-            if (string.IsNullOrEmpty(completedId))
-                return;
+            if (single != null)
+                single.ComboScored -= QueueSingleCombo;
 
-            foreach (RecipeCardView card in cards)
-            {
-                if (card.CardId != completedId)
-                    continue;
+            if (multi != null)
+                multi.ComboScored -= QueueCombo;
+        }
 
-                GetOverlay(card).PlayCombo(multiplier);
-                break;
-            }
+        private void OnDestroy()
+        {
+            Unsubscribe();
         }
     }
 }

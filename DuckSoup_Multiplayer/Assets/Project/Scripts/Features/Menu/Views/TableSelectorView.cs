@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using DuckSoup.Features.GameFeel.UI;
@@ -16,9 +15,13 @@ namespace DuckSoup.Features.Menu.Views
         [SerializeField] private string displayName = "Classic Table";
         [SerializeField] private Sprite previewSprite;
 
+        [TextArea(4, 12)]
+        [SerializeField] private string informationText = "";
+
         public string Id => tableId;
         public string DisplayName => displayName;
         public Sprite PreviewSprite => previewSprite;
+        public string InformationText => informationText;
     }
 
     public sealed class TableSelectorView : MonoBehaviour
@@ -40,10 +43,8 @@ namespace DuckSoup.Features.Menu.Views
         [SerializeField] private Button playButton;
         [SerializeField] private TextMeshProUGUI selectButtonText;
 
-        [Header("NEW - Button Text Outside Popup")]
-        [Tooltip("El TMP del boton situado debajo de PLAY en el menu.")]
-        [SerializeField]
-        private TextMeshProUGUI mainMenuSelectedTableText;
+        [Header("Button Text Outside Popup")]
+        [SerializeField] private TextMeshProUGUI mainMenuSelectedTableText;
 
         [Header("Tables")]
         [SerializeField]
@@ -63,6 +64,25 @@ namespace DuckSoup.Features.Menu.Views
         private bool initialized;
         private bool confirming;
 
+        public event Action<TableDisplayData> TableViewed;
+
+        // Devuelve la mesa que está mostrando el selector.
+        public TableDisplayData CurrentTable
+        {
+            get
+            {
+                if (!initialized ||
+                    tables == null ||
+                    selectedIndex < 0 ||
+                    selectedIndex >= tables.Length)
+                {
+                    return null;
+                }
+
+                return tables[selectedIndex];
+            }
+        }
+
         public void Initialize(
             IPlayerProgressStore store,
             Action<TableDisplayData> onTableConfirmed)
@@ -74,8 +94,7 @@ namespace DuckSoup.Features.Menu.Views
                 throw new ArgumentNullException(nameof(store));
 
             tableConfirmed = onTableConfirmed ??
-                throw new ArgumentNullException(
-                    nameof(onTableConfirmed));
+                throw new ArgumentNullException(nameof(onTableConfirmed));
 
             ValidateReferences();
             ValidateTables();
@@ -84,14 +103,11 @@ namespace DuckSoup.Features.Menu.Views
             nextButton.onClick.AddListener(NextTable);
             closeButton.onClick.AddListener(Hide);
 
-            // IMPORTANTE:
-            // No registramos OnClick para SELECT.
-            // Lo controla TableSelectDirectInput.
+            // SELECT sigue controlado por TableSelectDirectInput.
             if (selectButtonText == null)
             {
                 selectButtonText =
-                    playButton.GetComponentInChildren<
-                        TextMeshProUGUI>(true);
+                    playButton.GetComponentInChildren<TextMeshProUGUI>(true);
             }
 
             if (selectButtonText != null)
@@ -127,8 +143,7 @@ namespace DuckSoup.Features.Menu.Views
 
             panelRoot.SetActive(false);
 
-            Log("CLOSE | Panel active: " +
-                panelRoot.activeSelf);
+            Log("CLOSE | Panel active: " + panelRoot.activeSelf);
         }
 
         private void PreviousTable()
@@ -143,13 +158,10 @@ namespace DuckSoup.Features.Menu.Views
 
         private void Move(int direction)
         {
-            if (!initialized ||
-                confirming ||
-                tables.Length < 2)
+            if (!initialized || confirming || tables.Length < 2)
                 return;
 
-            if (carouselFeel != null &&
-                carouselFeel.IsSwitching)
+            if (carouselFeel != null && carouselFeel.IsSwitching)
                 return;
 
             if (carouselFeel == null)
@@ -167,8 +179,7 @@ namespace DuckSoup.Features.Menu.Views
         private void ApplyMove(int direction)
         {
             selectedIndex =
-                (selectedIndex + direction + tables.Length)
-                % tables.Length;
+                (selectedIndex + direction + tables.Length) % tables.Length;
 
             Refresh();
         }
@@ -178,67 +189,53 @@ namespace DuckSoup.Features.Menu.Views
             if (!initialized)
                 return;
 
-            TableDisplayData table =
-                tables[selectedIndex];
+            TableDisplayData table = tables[selectedIndex];
 
             tableNameText.text = table.DisplayName;
 
             highScoreText.text =
-                "HIGH SCORE: " +
-                progressStore.GetTableHighScore(table.Id);
+                "HIGH SCORE: " + progressStore.GetTableHighScore(table.Id);
 
             tableImage.sprite = table.PreviewSprite;
-            tableImage.enabled =
-                table.PreviewSprite != null;
+            tableImage.enabled = table.PreviewSprite != null;
 
-            previousButton.interactable =
-                tables.Length > 1;
-
-            nextButton.interactable =
-                tables.Length > 1;
+            previousButton.interactable = tables.Length > 1;
+            nextButton.interactable = tables.Length > 1;
 
             if (selectButtonText != null)
                 selectButtonText.text = "SELECT";
+
+            // Actualiza la información al cambiar la mesa visible.
+            TableViewed?.Invoke(table);
         }
 
-        // NUEVO METODO PUBLICO.
-        // Lo llama directamente el script del boton.
         public void ConfirmSelectionFromDirectInput()
         {
-            Log("DIRECT SELECT RECEIVED");
-
-            if (!initialized || confirming)
+            if (!initialized ||
+                confirming ||
+                tables == null ||
+                tables.Length == 0)
+            {
                 return;
-
-            if (tables == null || tables.Length == 0)
-                return;
+            }
 
             confirming = true;
 
-            TableDisplayData selected =
-                tables[selectedIndex];
+            TableDisplayData selected = tables[selectedIndex];
 
             try
             {
-                // 1. Actualizar directamente el texto
-                // del boton situado debajo de PLAY.
                 if (mainMenuSelectedTableText != null)
                 {
-                    mainMenuSelectedTableText.text =
-                        selected.DisplayName;
+                    mainMenuSelectedTableText.text = selected.DisplayName;
                 }
                 else
                 {
                     Debug.LogWarning(
-                        "[TableSelector] Asigna " +
-                        "Main Menu Selected Table Text.",
+                        "[TableSelector] Asigna Main Menu Selected Table Text.",
                         this);
                 }
 
-                // 2. Avisar al Bootstrap.
-                // Esto es importante: no basta con
-                // cambiar el texto visual. Tambien
-                // debe guardarse el TableId real.
                 tableConfirmed?.Invoke(selected);
 
                 Log("SELECTED: " + selected.Id);
@@ -249,7 +246,6 @@ namespace DuckSoup.Features.Menu.Views
             }
             finally
             {
-                // 3. Cerrar SIEMPRE el popup.
                 Hide();
                 confirming = false;
             }
@@ -261,8 +257,7 @@ namespace DuckSoup.Features.Menu.Views
         {
             selected = null;
 
-            if (!initialized ||
-                string.IsNullOrWhiteSpace(tableId))
+            if (!initialized || string.IsNullOrWhiteSpace(tableId))
                 return false;
 
             for (int i = 0; i < tables.Length; i++)
@@ -271,7 +266,9 @@ namespace DuckSoup.Features.Menu.Views
                     tables[i].Id,
                     tableId,
                     StringComparison.Ordinal))
+                {
                     continue;
+                }
 
                 selectedIndex = i;
                 selected = tables[i];
@@ -309,8 +306,7 @@ namespace DuckSoup.Features.Menu.Views
                     "[TableSelector] No tables configured.");
             }
 
-            var ids = new HashSet<string>(
-                StringComparer.Ordinal);
+            var ids = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (TableDisplayData table in tables)
             {
@@ -328,11 +324,7 @@ namespace DuckSoup.Features.Menu.Views
         private void Log(string message)
         {
             if (showDebugLogs)
-            {
-                Debug.Log(
-                    "[TableSelector] " + message,
-                    this);
-            }
+                Debug.Log("[TableSelector] " + message, this);
         }
 
         private void OnDestroy()

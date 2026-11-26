@@ -1,5 +1,5 @@
-
 using System;
+using DuckSoup.Features.UI;
 using DuckSoup.Features.GameFeel.Gameplay;
 using DuckSoup.Features.GameFeel.UI;
 using DuckSoup.Features.SinglePlayer.Contracts;
@@ -31,19 +31,27 @@ namespace DuckSoup.Features.SinglePlayer.Views
         [SerializeField, Min(0.1f)]
         private float recipeMessageSeconds = 0.8f;
 
+        [Header("Countdown images")]
+        [SerializeField] private CountdownSpriteView countdownSprites;
+
+        [Header("Time penalty next to the timer")]
+        [SerializeField] private TextMeshProUGUI timePenaltyText;
+
+        [SerializeField, Min(0.1f)]
+        private float penaltyVisibleSeconds = 1.1f;
+
+        private float penaltyRemaining;
         private SinglePlayerSession session;
         private float messageRemaining;
         private bool initialized;
 
-        public void Initialize(
-            SinglePlayerSession currentSession)
+        public void Initialize(SinglePlayerSession currentSession)
         {
             if (initialized)
                 return;
 
             session = currentSession ??
-                throw new ArgumentNullException(
-                    nameof(currentSession));
+                throw new ArgumentNullException(nameof(currentSession));
 
             if (board == null ||
                 timerText == null ||
@@ -56,6 +64,10 @@ namespace DuckSoup.Features.SinglePlayer.Views
             }
 
             board.RecipeCompleted += ShowRecipeCompleted;
+            board.TimePenaltyApplied += ShowTimePenalty;
+
+            if (timePenaltyText != null)
+                timePenaltyText.gameObject.SetActive(false);
 
             countdownText.gameObject.SetActive(false);
             recipeCompletedText.gameObject.SetActive(false);
@@ -87,6 +99,10 @@ namespace DuckSoup.Features.SinglePlayer.Views
         {
             HideRecipeCompleted();
 
+            countdownText.enabled =
+                countdownSprites == null ||
+                !countdownSprites.TryShow(message);
+
             countdownText.text = message;
             countdownText.gameObject.SetActive(true);
 
@@ -101,7 +117,24 @@ namespace DuckSoup.Features.SinglePlayer.Views
 
         public void HideOverlay()
         {
+            countdownSprites?.Hide();
             countdownText.gameObject.SetActive(false);
+        }
+
+        private void ShowTimePenalty()
+        {
+            RefreshHud(
+                session.RemainingSeconds,
+                session.CompletedRecipes);
+
+            if (timePenaltyText == null)
+                return;
+
+            timePenaltyText.text = "-1";
+            timePenaltyText.alpha = 1f;
+            timePenaltyText.gameObject.SetActive(true);
+
+            penaltyRemaining = penaltyVisibleSeconds;
         }
 
         public void RefreshBoard()
@@ -109,9 +142,7 @@ namespace DuckSoup.Features.SinglePlayer.Views
             board.Refresh();
         }
 
-        public void RefreshHud(
-            float seconds,
-            int recipes)
+        public void RefreshHud(float seconds, int recipes)
         {
             int remaining =
                 Mathf.CeilToInt(Mathf.Max(0f, seconds));
@@ -130,15 +161,11 @@ namespace DuckSoup.Features.SinglePlayer.Views
             }
 
             if (timerMusic != null)
-            {
                 timerMusic.RenderRemaining(seconds);
-            }
         }
 
         private void ShowRecipeCompleted()
         {
-            // Con power-ups activos, el feedback
-            // lo controla el nuevo sistema visual.
             if (session.PowerUpsEnabled)
             {
                 HideRecipeCompleted();
@@ -150,13 +177,8 @@ namespace DuckSoup.Features.SinglePlayer.Views
                 return;
             }
 
-            // Comportamiento anterior si los combos
-            // no estan habilitados.
-            recipeCompletedText.text =
-                "RECIPE COMPLETED!";
-
+            recipeCompletedText.text = "RECIPE COMPLETED!";
             recipeCompletedText.gameObject.SetActive(true);
-
             messageRemaining = recipeMessageSeconds;
 
             RefreshHud(
@@ -166,15 +188,24 @@ namespace DuckSoup.Features.SinglePlayer.Views
 
         private void Update()
         {
+            if (timePenaltyText != null && penaltyRemaining > 0f)
+            {
+                penaltyRemaining -= Time.deltaTime;
+
+                timePenaltyText.alpha =
+                    Mathf.Clamp01(penaltyRemaining / 0.25f);
+
+                if (penaltyRemaining <= 0f)
+                    timePenaltyText.gameObject.SetActive(false);
+            }
+
             if (messageRemaining <= 0f)
                 return;
 
             messageRemaining -= Time.unscaledDeltaTime;
 
             if (messageRemaining <= 0f)
-            {
                 HideRecipeCompleted();
-            }
         }
 
         private void HideRecipeCompleted()
@@ -182,17 +213,15 @@ namespace DuckSoup.Features.SinglePlayer.Views
             messageRemaining = 0f;
 
             if (recipeCompletedText != null)
-            {
                 recipeCompletedText.gameObject.SetActive(false);
-            }
         }
 
         private void OnDestroy()
         {
             if (board != null)
             {
-                board.RecipeCompleted -=
-                    ShowRecipeCompleted;
+                board.RecipeCompleted -= ShowRecipeCompleted;
+                board.TimePenaltyApplied -= ShowTimePenalty;
             }
         }
     }

@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections;
 using DuckSoup.Features.Audio;
@@ -13,16 +12,15 @@ namespace DuckSoup.Features.Menu.Views
     public sealed class DuckSelectionView : MonoBehaviour
     {
         [Header("Panel")]
-        [SerializeField]
-        private GameObject panelRoot;
+        [SerializeField] private GameObject panelRoot;
 
         [Header("Duck Sprites")]
-        [SerializeField]
-        private Sprite[] duckSprites = new Sprite[4];
+        [SerializeField] private Sprite[] duckSprites = new Sprite[4];
 
         [Header("Optional Selected Duck Sprites")]
         [SerializeField]
-        private Sprite[] duckSelectedSprites = new Sprite[4];
+        private Sprite[] duckSelectedSprites =
+            new Sprite[4];
 
         [SerializeField]
         private bool useSelectedSpritesAsPreview = false;
@@ -43,46 +41,25 @@ namespace DuckSoup.Features.Menu.Views
         [SerializeField] private Button playButton;
         [SerializeField] private Button closeButton;
 
-        [Header("Old SELECT UI - Optional")]
+        [Header("Old SELECT UI")]
         [SerializeField] private Button player1SelectButton;
         [SerializeField] private Button player2SelectButton;
-
-        [SerializeField]
-        private TextMeshProUGUI player1SelectionText;
-
-        [SerializeField]
-        private TextMeshProUGUI player2SelectionText;
-
-        [SerializeField]
-        private TextMeshProUGUI statusText;
+        [SerializeField] private TextMeshProUGUI player1SelectionText;
+        [SerializeField] private TextMeshProUGUI player2SelectionText;
+        [SerializeField] private TextMeshProUGUI statusText;
 
         [Header("Carousel Game Feel")]
-        [SerializeField]
-        private UICarouselFeel player1CarouselFeel;
-
-        [SerializeField]
-        private UICarouselFeel player2CarouselFeel;
-
-        [Header("Duck Audio")]
-        [SerializeField]
-        private bool playDuckSoundWhenBrowsing = true;
+        [SerializeField] private UICarouselFeel player1CarouselFeel;
+        [SerializeField] private UICarouselFeel player2CarouselFeel;
 
         private Action<int, int> selectionConfirmed;
-
         private int player1ViewedIndex = 0;
         private int player2ViewedIndex = 0;
-
         private bool initialized;
         private bool launching;
-
         private Coroutine launchRoutine;
 
-        // -------------------------------------
-        // INITIALIZATION
-        // -------------------------------------
-
-        public void Initialize(
-            Action<int, int> onSelectionConfirmed)
+        public void Initialize(Action<int, int> onSelectionConfirmed)
         {
             if (initialized)
                 return;
@@ -93,65 +70,44 @@ namespace DuckSoup.Features.Menu.Views
                 throw new ArgumentNullException(
                     nameof(onSelectionConfirmed));
 
-            // Player 1 carousel
             player1PreviousButton.onClick.AddListener(
                 PreviousPlayer1Duck);
 
             player1NextButton.onClick.AddListener(
                 NextPlayer1Duck);
 
-            // Player 2 carousel
             player2PreviousButton.onClick.AddListener(
                 PreviousPlayer2Duck);
 
             player2NextButton.onClick.AddListener(
                 NextPlayer2Duck);
 
-            // PLAY now takes BOTH visible ducks.
-            playButton.onClick.AddListener(
-                ConfirmSelection);
-
+            playButton.onClick.AddListener(ConfirmSelection);
             closeButton.onClick.AddListener(Close);
 
             initialized = true;
 
-            // Remove the old confirmation UI.
             HideOldSelectionUI();
-
             panelRoot.SetActive(false);
         }
 
         private void HideOldSelectionUI()
         {
             if (player1SelectButton != null)
-            {
                 player1SelectButton.gameObject.SetActive(false);
-            }
 
             if (player2SelectButton != null)
-            {
                 player2SelectButton.gameObject.SetActive(false);
-            }
 
             if (player1SelectionText != null)
-            {
                 player1SelectionText.gameObject.SetActive(false);
-            }
 
             if (player2SelectionText != null)
-            {
                 player2SelectionText.gameObject.SetActive(false);
-            }
 
             if (statusText != null)
-            {
                 statusText.gameObject.SetActive(false);
-            }
         }
-
-        // -------------------------------------
-        // OPEN / CLOSE
-        // -------------------------------------
 
         public void Open()
         {
@@ -171,16 +127,12 @@ namespace DuckSoup.Features.Menu.Views
             }
 
             launching = false;
-
-            // Keep the ducks previously viewed
-            // if the panel is opened again.
             panelRoot.SetActive(true);
 
             player1CarouselFeel?.ResetVisual(false);
             player2CarouselFeel?.ResetVisual(false);
 
             HideOldSelectionUI();
-
             Refresh();
         }
 
@@ -193,16 +145,10 @@ namespace DuckSoup.Features.Menu.Views
             }
 
             if (panelRoot != null)
-            {
                 panelRoot.SetActive(false);
-            }
 
             launching = false;
         }
-
-        // -------------------------------------
-        // PLAYER 1
-        // -------------------------------------
 
         private void PreviousPlayer1Duck()
         {
@@ -226,10 +172,7 @@ namespace DuckSoup.Features.Menu.Views
 
                 player1CarouselFeel.Switch(
                     direction,
-                    () =>
-                    {
-                        ApplyPlayer1Move(direction);
-                    });
+                    () => ApplyPlayer1Move(direction));
             }
             else
             {
@@ -239,21 +182,12 @@ namespace DuckSoup.Features.Menu.Views
 
         private void ApplyPlayer1Move(int direction)
         {
-            player1ViewedIndex = WrapIndex(
-                player1ViewedIndex + direction);
+            player1ViewedIndex =
+                WrapIndex(player1ViewedIndex + direction);
 
             Refresh();
-
-            if (playDuckSoundWhenBrowsing)
-            {
-                DuckSoupSoundPlayer.PlayDuck(
-                    player1ViewedIndex);
-            }
+            DuckSoupSoundPlayer.PlayDuck(player1ViewedIndex);
         }
-
-        // -------------------------------------
-        // PLAYER 2
-        // -------------------------------------
 
         private void PreviousPlayer2Duck()
         {
@@ -277,10 +211,7 @@ namespace DuckSoup.Features.Menu.Views
 
                 player2CarouselFeel.Switch(
                     direction,
-                    () =>
-                    {
-                        ApplyPlayer2Move(direction);
-                    });
+                    () => ApplyPlayer2Move(direction));
             }
             else
             {
@@ -290,26 +221,16 @@ namespace DuckSoup.Features.Menu.Views
 
         private void ApplyPlayer2Move(int direction)
         {
-            player2ViewedIndex = WrapIndex(
-                player2ViewedIndex + direction);
+            player2ViewedIndex =
+                WrapIndex(player2ViewedIndex + direction);
 
             Refresh();
-
-            if (playDuckSoundWhenBrowsing)
-            {
-                DuckSoupSoundPlayer.PlayDuck(
-                    player2ViewedIndex);
-            }
+            DuckSoupSoundPlayer.PlayDuck(player2ViewedIndex);
         }
-
-        // -------------------------------------
-        // DUCK DISPLAY
-        // -------------------------------------
 
         private int WrapIndex(int index)
         {
             int count = duckSprites.Length;
-
             return (index % count + count) % count;
         }
 
@@ -318,15 +239,8 @@ namespace DuckSoup.Features.Menu.Views
             if (!initialized)
                 return;
 
-            // Show the duck currently viewed
-            // by each player.
-            SetDuck(
-                player1DuckImage,
-                player1ViewedIndex);
-
-            SetDuck(
-                player2DuckImage,
-                player2ViewedIndex);
+            SetDuck(player1DuckImage, player1ViewedIndex);
+            SetDuck(player2DuckImage, player2ViewedIndex);
 
             player1DuckNameText.text =
                 "DUCK " + (player1ViewedIndex + 1);
@@ -334,15 +248,10 @@ namespace DuckSoup.Features.Menu.Views
             player2DuckNameText.text =
                 "DUCK " + (player2ViewedIndex + 1);
 
-            // No player confirmation is required.
-            // PLAY is always available unless
-            // a match is already launching.
             playButton.interactable = !launching;
         }
 
-        private void SetDuck(
-            Image image,
-            int index)
+        private void SetDuck(Image image, int index)
         {
             if (image == null)
                 return;
@@ -370,10 +279,6 @@ namespace DuckSoup.Features.Menu.Views
             image.color = Color.white;
         }
 
-        // -------------------------------------
-        // MAIN PLAY BUTTON
-        // -------------------------------------
-
         private void ConfirmSelection()
         {
             if (!initialized || launching)
@@ -382,13 +287,10 @@ namespace DuckSoup.Features.Menu.Views
             launching = true;
             playButton.interactable = false;
 
-            // If the player presses PLAY while
-            // an arrow transition is finishing,
-            // wait for the visual to settle.
             if (CarouselsAreSwitching())
             {
-                launchRoutine = StartCoroutine(
-                    WaitForCarouselsAndLaunch());
+                launchRoutine =
+                    StartCoroutine(WaitForCarouselsAndLaunch());
             }
             else
             {
@@ -412,20 +314,14 @@ namespace DuckSoup.Features.Menu.Views
         private IEnumerator WaitForCarouselsAndLaunch()
         {
             while (CarouselsAreSwitching())
-            {
                 yield return null;
-            }
 
             launchRoutine = null;
-
             LaunchMatch();
         }
 
-
         private void LaunchMatch()
         {
-            // Recoger los patitos que ambos jugadores
-            // tienen actualmente en pantalla.
             int duck1 = player1ViewedIndex;
             int duck2 = player2ViewedIndex;
 
@@ -435,22 +331,8 @@ namespace DuckSoup.Features.Menu.Views
                 " | P2 Duck: " + duck2,
                 this);
 
-            // NO cerramos panelRoot aqui.
-            // Lo mantenemos visible mientras ocurre
-            // el fade out para evitar que aparezca
-            // el menu principal por debajo.
-
-            // MainMenuBootstrap guarda los patitos
-            // e inicia la transición de escena.
-            selectionConfirmed?.Invoke(
-                duck1,
-                duck2);
+            selectionConfirmed?.Invoke(duck1, duck2);
         }
-
-
-        // -------------------------------------
-        // VALIDATION
-        // -------------------------------------
 
         private void ValidateReferences()
         {
@@ -466,12 +348,11 @@ namespace DuckSoup.Features.Menu.Views
                 playButton == null ||
                 closeButton == null ||
                 duckSprites == null ||
-                duckSprites.Length !=
-                    GameLaunchRequest.AvailableDucks)
+                duckSprites.Length != GameLaunchRequest.AvailableDucks)
             {
                 throw new InvalidOperationException(
-                    "[DuckSelection] Missing required " +
-                    "references or duck sprites.");
+                    "[DuckSelection] Missing required references " +
+                    "or duck sprites.");
             }
         }
 
@@ -492,11 +373,8 @@ namespace DuckSoup.Features.Menu.Views
             player2NextButton.onClick.RemoveListener(
                 NextPlayer2Duck);
 
-            playButton.onClick.RemoveListener(
-                ConfirmSelection);
-
-            closeButton.onClick.RemoveListener(
-                Close);
+            playButton.onClick.RemoveListener(ConfirmSelection);
+            closeButton.onClick.RemoveListener(Close);
         }
     }
 }
