@@ -60,7 +60,7 @@ namespace DuckSoup.Features.GameFeel.Menu
                 float countT = Mathf.Clamp01(elapsed / countSeconds);
                 float eased = 1f - Mathf.Pow(1f - countT, 3f);
                 int earnedNow = Mathf.RoundToInt(earned * eased);
-                totalRecipesText.text = "TOTAL RECIPES: " + (from + earnedNow);
+                totalRecipesText.text = (from + earnedNow).ToString();
                 earnedText.text = "+" + earned + " RECIPES";
 
                 float alpha = Mathf.Clamp01(elapsed / fadeInSeconds);
@@ -76,7 +76,7 @@ namespace DuckSoup.Features.GameFeel.Menu
                 yield return null;
             }
 
-            totalRecipesText.text = "TOTAL RECIPES: " + target;
+            totalRecipesText.text = target.ToString();
             rewardPanel.SetActive(false);
             rewardCanvasGroup.alpha = 1f;
             if (rewardRect != null) rewardRect.anchoredPosition = restingPosition;

@@ -16,11 +16,6 @@ using UnityEngine.SceneManagement;
 
 namespace DuckSoup.Bootstrap
 {
-    /// <summary>
-    /// Dos rondas en la misma escena 2P:
-    /// 1 - mesa normal; 2 - dos cintas. Resultado final = suma de ambas.
-    /// Usa el gameplay 2P existente sin modificar TwoPlayerSession ni BoardView.
-    /// </summary>
     public sealed class TwoPlayerGameplayBootstrap : MonoBehaviour
     {
         [Header("Power-ups (optional)")]
@@ -50,65 +45,85 @@ namespace DuckSoup.Bootstrap
 
         private GameStateMachine machine;
         private TwoPlayerSession session;
+
         private IGameState roundIntro;
         private IGameState countdown;
         private IGameState playing;
         private IGameState timeUp;
         private IGameState intermission;
         private IGameState results;
+
         private bool initialized;
         private int currentRound;
 
         private void Awake()
         {
             Time.timeScale = 1f;
-            if (boardView == null || gameView == null || resultsView == null)
+
+            if (boardView == null ||
+                gameView == null ||
+                resultsView == null)
             {
-                Debug.LogError("[2P] Asigna Board, Game y Results.", this);
+                Debug.LogError(
+                    "[2P] Asigna Board, Game y Results.",
+                    this);
+
                 enabled = false;
                 return;
             }
 
             try
             {
-                // Primer arranque desde el menu: hay un GameLaunchRequest.
-                // Al recargar esta misma escena para la segunda ronda,
-                // recuperamos TwoPlayerMatchProgress (no existe nueva request).
-                if (GameLaunchHandoff.TryConsume(out GameLaunchRequest request))
+                if (GameLaunchHandoff.TryConsume(
+                    out GameLaunchRequest request))
                 {
                     TwoPlayerMatchProgress.Begin(request);
                 }
                 else if (!TwoPlayerMatchProgress.IsActive ||
                          TwoPlayerMatchProgress.IsComplete)
                 {
-                    // Permite probar directamente la escena en el Editor.
                     TwoPlayerMatchProgress.Begin(
-                        GameLaunchRequest.ForTwoPlayers("classic_table", 0, 1));
+                        GameLaunchRequest.ForTwoPlayers(
+                            "classic_table",
+                            0,
+                            1));
                 }
 
                 currentRound = TwoPlayerMatchProgress.CurrentRound;
+
                 bool useConveyor = currentRound == 2;
+
                 if (useConveyor && conveyorBelt == null)
+                {
                     throw new InvalidOperationException(
-                        "Ronda 2 requiere Conveyor Belt asignado en el Inspector.");
+                        "Ronda 2 requiere Conveyor Belt " +
+                        "asignado en el Inspector.");
+                }
+
                 if (conveyorBelt != null)
                     conveyorBelt.Configure(useConveyor);
 
                 session = new TwoPlayerSession(
                     PrototypeRecipeCatalog.Create(),
-                    new SystemRandomSource(randomSeed + currentRound * 101),
-                    gameDurationSeconds, ingredientRevealSeconds,
-                    tokenRefillSeconds, recipeReplacementSeconds);
+                    new SystemRandomSource(
+                        randomSeed + currentRound * 101),
+                    gameDurationSeconds,
+                    ingredientRevealSeconds,
+                    tokenRefillSeconds,
+                    recipeReplacementSeconds);
 
                 if (powerUpSettings == null)
                     powerUpSettings = GetComponent<PowerUpSettings>();
+
                 if (powerUpSettings != null)
                     session.EnablePowerUps(powerUpSettings.CreateRules());
+
                 if (powerUpHud != null)
                 {
                     powerUpHud.Initialize(session);
                     boardView.SetPowerUpHud(powerUpHud);
                 }
+
                 boardView.Initialize(session);
 
                 string roundTitle = useConveyor
@@ -120,27 +135,41 @@ namespace DuckSoup.Bootstrap
                 machine = new GameStateMachine();
 
                 roundIntro = new TextIntroState(
-                    gameView, () => roundTitle,
+                    gameView,
+                    () => roundTitle,
                     roundIntroSeconds,
                     () => machine.RequestStateChange(countdown));
 
                 countdown = new TwoPlayerCountdownState(
-                    gameView, () => machine.RequestStateChange(playing));
+                    gameView,
+                    () => machine.RequestStateChange(playing));
 
                 playing = new TwoPlayerPlayingState(
-                    session, gameView, () => machine.RequestStateChange(timeUp));
+                    session,
+                    gameView,
+                    () => machine.RequestStateChange(timeUp));
 
                 timeUp = new TwoPlayerTimeUpState(
-                    gameView, RoundFinished, timeUpMessageSeconds);
+                    gameView,
+                    RoundFinished,
+                    timeUpMessageSeconds);
 
                 intermission = new TextIntroState(
-                    gameView, () => "ROUND 1 COMPLETE!",
-                    betweenRoundsSeconds, LoadNextRound);
+                    gameView,
+                    () => "ROUND 1 COMPLETE!",
+                    betweenRoundsSeconds,
+                    LoadNextRound);
+
                 results = new AggregateResultsState(resultsView);
+
                 resultsView.NextRequested += ReturnToMainMenu;
 
                 initialized = true;
-                Debug.Log($"[2P] Ronda {currentRound}/2. Conveyor: {useConveyor}.", this);
+
+                Debug.Log(
+                    $"[2P] Ronda {currentRound}/2. " +
+                    $"Conveyor: {useConveyor}.",
+                    this);
             }
             catch (Exception ex)
             {
@@ -151,23 +180,36 @@ namespace DuckSoup.Bootstrap
 
         private void OnEnable()
         {
-            if (initialized) machine.RequestStateChange(roundIntro);
+            if (initialized)
+                machine.RequestStateChange(roundIntro);
         }
 
         private void Update()
         {
-            if (initialized) machine.Tick(Time.deltaTime);
+            if (!initialized)
+                return;
+
+            machine.Tick(Time.deltaTime);
+
+            if (conveyorBelt != null)
+            {
+                conveyorBelt.UpdateSpeedFromRemainingTime(
+                    session.RemainingSeconds);
+            }
         }
 
         private void LateUpdate()
         {
-            if (initialized) machine.ApplyPendingTransition();
+            if (initialized)
+                machine.ApplyPendingTransition();
         }
 
         private void RoundFinished()
         {
-            bool hasAnotherRound = TwoPlayerMatchProgress.CompleteCurrentRound(
-                session.Player1Score, session.Player2Score);
+            bool hasAnotherRound =
+                TwoPlayerMatchProgress.CompleteCurrentRound(
+                    session.Player1Score,
+                    session.Player2Score);
 
             if (hasAnotherRound)
             {
@@ -175,41 +217,55 @@ namespace DuckSoup.Bootstrap
             }
             else
             {
-                // Ronda 2: los resultados muestran la SUMA de las dos.
                 machine.RequestStateChange(results);
             }
         }
 
         private void LoadNextRound()
         {
-            string sceneName = SceneManager.GetActiveScene().name;
-            if (!UnityEngine.Application.CanStreamedLevelBeLoaded(sceneName))
+            string sceneName =
+                SceneManager.GetActiveScene().name;
+
+            if (!UnityEngine.Application.CanStreamedLevelBeLoaded(
+                sceneName))
             {
-                Debug.LogError("[2P] Falta la escena 2P en Build Settings.", this);
+                Debug.LogError(
+                    "[2P] Falta la escena 2P en Build Settings.",
+                    this);
+
                 return;
             }
+
             SceneFadeTransition.LoadScene(sceneName);
         }
 
         private void ReturnToMainMenu()
         {
-            if (!UnityEngine.Application.CanStreamedLevelBeLoaded(mainMenuSceneName))
+            if (!UnityEngine.Application.CanStreamedLevelBeLoaded(
+                mainMenuSceneName))
             {
-                Debug.LogError("[2P] Falta MainMenuScene en Build Settings.", this);
+                Debug.LogError(
+                    "[2P] Falta MainMenuScene en Build Settings.",
+                    this);
+
                 return;
             }
+
             TwoPlayerMatchProgress.Clear();
+
             SceneFadeTransition.LoadScene(mainMenuSceneName);
         }
 
-        private void OnApplicationPause(bool paused)
+        private void OnApplicationPause(bool applicationPaused)
         {
-            if (paused) boardView?.CancelAllDrags();
+            if (applicationPaused)
+                boardView?.CancelAllDrags();
         }
 
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (!hasFocus) boardView?.CancelAllDrags();
+            if (!hasFocus)
+                boardView?.CancelAllDrags();
         }
 
         private void OnDisable()
@@ -230,11 +286,15 @@ namespace DuckSoup.Bootstrap
             private readonly Func<string> messageFactory;
             private readonly float seconds;
             private readonly Action completed;
+
             private float elapsed;
             private bool requested;
 
-            public TextIntroState(ITwoPlayerFlowView view, Func<string> message,
-                float seconds, Action completed)
+            public TextIntroState(
+                ITwoPlayerFlowView view,
+                Func<string> message,
+                float seconds,
+                Action completed)
             {
                 this.view = view;
                 messageFactory = message;
@@ -246,14 +306,18 @@ namespace DuckSoup.Bootstrap
             {
                 elapsed = 0f;
                 requested = false;
+
                 view.SetInputEnabled(false);
                 view.ShowOverlay(messageFactory());
             }
 
             public void Tick(float deltaTime)
             {
-                if (requested) return;
+                if (requested)
+                    return;
+
                 elapsed += deltaTime;
+
                 if (elapsed >= seconds)
                 {
                     requested = true;
@@ -261,29 +325,42 @@ namespace DuckSoup.Bootstrap
                 }
             }
 
-            public void Exit() => view.HideOverlay();
+            public void Exit()
+            {
+                view.HideOverlay();
+            }
         }
 
         private sealed class AggregateResultsState : IGameState
         {
             private readonly TwoPlayerResultsView resultsView;
 
-            public AggregateResultsState(TwoPlayerResultsView results)
+            public AggregateResultsState(
+                TwoPlayerResultsView results)
             {
                 resultsView = results;
             }
 
             public void Enter()
             {
-                GameLaunchRequest request = TwoPlayerMatchProgress.Request;
+                GameLaunchRequest request =
+                    TwoPlayerMatchProgress.Request;
+
                 resultsView.Show(
-                    request.Player1DuckIndex, request.Player2DuckIndex,
+                    request.Player1DuckIndex,
+                    request.Player2DuckIndex,
                     TwoPlayerMatchProgress.Player1Total,
                     TwoPlayerMatchProgress.Player2Total);
             }
 
-            public void Tick(float deltaTime) { }
-            public void Exit() => resultsView.Hide();
+            public void Tick(float deltaTime)
+            {
+            }
+
+            public void Exit()
+            {
+                resultsView.Hide();
+            }
         }
     }
 }

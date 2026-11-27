@@ -17,10 +17,6 @@ using UnityEngine;
 
 namespace DuckSoup.Bootstrap
 {
-    /// <summary>
-    /// Modo individual: usa la misma sesion y los mismos prefabs de siempre.
-    /// Solo selecciona mesa normal o mesa de cintas en funcion del TableId.
-    /// </summary>
     public sealed class SinglePlayerGameplayBootstrap : MonoBehaviour
     {
         [Header("Power-ups (optional)")]
@@ -52,24 +48,32 @@ namespace DuckSoup.Bootstrap
 
         private GameStateMachine stateMachine;
         private SinglePlayerSession session;
+
         private IGameState countdownState;
         private IGameState playingState;
         private IGameState timeUpState;
+
         private GameLaunchRequest launchRequest;
         private PlayerPrefsProgressStore progressStore;
+
         private bool initialized;
         private bool resultSaved;
         private bool paused;
         private bool leaving;
+
         private float timeScaleBeforePause;
         private Coroutine resumeCountdown;
 
         private void Awake()
         {
             Time.timeScale = 1f;
+
             if (boardView == null || gameView == null)
             {
-                Debug.LogError("[1P] Asigna Board View y Game View.", this);
+                Debug.LogError(
+                    "[1P] Asigna Board View y Game View.",
+                    this);
+
                 enabled = false;
                 return;
             }
@@ -77,51 +81,84 @@ namespace DuckSoup.Bootstrap
             try
             {
                 if (!GameLaunchHandoff.TryConsume(out launchRequest))
-                    launchRequest = GameLaunchRequest.ForSinglePlayer(defaultTableId);
+                {
+                    launchRequest =
+                        GameLaunchRequest.ForSinglePlayer(defaultTableId);
+                }
+
                 if (launchRequest.Mode != GameMode.SinglePlayer)
-                    throw new InvalidOperationException("La peticion recibida no es SinglePlayer.");
-
-                bool conveyorSelected =
-                    string.Equals(launchRequest.TableId, conveyorTableId,
-                        StringComparison.Ordinal);
-                if (conveyorSelected && conveyorBelt == null)
+                {
                     throw new InvalidOperationException(
-                        "Seleccionaste Conveyor Table, pero falta Conveyor Belt en el Inspector.");
+                        "La peticion recibida no es SinglePlayer.");
+                }
 
-                // Configurar ANTES de crear el tablero; la cinta monta sus
-                // slots en Start, despues de boardView.Initialize().
+                bool conveyorSelected = string.Equals(
+                    launchRequest.TableId,
+                    conveyorTableId,
+                    StringComparison.Ordinal);
+
+                if (conveyorSelected && conveyorBelt == null)
+                {
+                    throw new InvalidOperationException(
+                        "Seleccionaste Conveyor Table, pero falta " +
+                        "Conveyor Belt en el Inspector.");
+                }
+
                 if (conveyorBelt != null)
                     conveyorBelt.Configure(conveyorSelected);
 
-                IRandomSource random = new SystemRandomSource(randomSeed);
+                IRandomSource random =
+                    new SystemRandomSource(randomSeed);
+
                 session = new SinglePlayerSession(
-                    PrototypeRecipeCatalog.Create(), random, gameDuration,
-                    ingredientRevealSeconds, recipeReplacementSeconds,
+                    PrototypeRecipeCatalog.Create(),
+                    random,
+                    gameDuration,
+                    ingredientRevealSeconds,
+                    recipeReplacementSeconds,
                     tokenRefillSeconds);
 
                 progressStore = new PlayerPrefsProgressStore();
+
                 if (powerUpSettings == null)
                     powerUpSettings = GetComponent<PowerUpSettings>();
+
                 if (powerUpSettings != null)
                     session.EnablePowerUps(powerUpSettings.CreateRules());
+
                 if (powerUpHud != null)
                 {
                     powerUpHud.Initialize(session);
                     boardView.SetPowerUpHud(powerUpHud);
                 }
+
                 boardView.Initialize(session);
                 gameView.Initialize(session);
+
                 stateMachine = new GameStateMachine();
+
                 countdownState = new SinglePlayerCountdownState(
-                    gameView, () => stateMachine.RequestStateChange(playingState));
+                    gameView,
+                    () => stateMachine.RequestStateChange(playingState));
+
                 playingState = new SinglePlayerPlayingState(
-                    session, gameView, () => stateMachine.RequestStateChange(timeUpState));
+                    session,
+                    gameView,
+                    () => stateMachine.RequestStateChange(timeUpState));
+
                 timeUpState = new SinglePlayerTimeUpState(
-                    session, gameView, SaveFinalResult, ReturnToMainMenu,
+                    session,
+                    gameView,
+                    SaveFinalResult,
+                    ReturnToMainMenu,
                     timeUpDisplaySeconds);
 
                 initialized = true;
-                Debug.Log($"[1P] Mesa: {launchRequest.TableId}; cinta: {conveyorSelected}.", this);
+
+                Debug.Log(
+                    $"[1P] Mesa: {launchRequest.TableId}; " +
+                    $"cinta: {conveyorSelected}.",
+                    this);
             }
             catch (Exception ex)
             {
@@ -139,48 +176,76 @@ namespace DuckSoup.Bootstrap
         private void Start()
         {
             if (initialized && pauseSettings != null)
-                pauseSettings.BindPause(TryPause, BeginResumeCountdown, TryAbandonRun);
+            {
+                pauseSettings.BindPause(
+                    TryPause,
+                    BeginResumeCountdown,
+                    TryAbandonRun);
+            }
         }
 
         private void Update()
         {
-            if (initialized && !paused) stateMachine.Tick(Time.deltaTime);
+            if (!initialized || paused)
+                return;
+
+            stateMachine.Tick(Time.deltaTime);
+
+            if (conveyorBelt != null)
+            {
+                conveyorBelt.UpdateSpeedFromRemainingTime(
+                    session.RemainingSeconds);
+            }
         }
 
         private void LateUpdate()
         {
-            if (!initialized || paused) return;
+            if (!initialized || paused)
+                return;
 
             stateMachine.ApplyPendingTransition();
+
             if (pauseSettings != null)
                 pauseSettings.SetOpenButtonAvailable(CanPause());
         }
 
         private bool CanPause()
         {
-            return initialized && isActiveAndEnabled && !paused && !leaving &&
+            return initialized &&
+                isActiveAndEnabled &&
+                !paused &&
+                !leaving &&
                 !session.IsTimeUp &&
-                stateMachine.CurrentStateName == nameof(SinglePlayerPlayingState);
+                stateMachine.CurrentStateName ==
+                    nameof(SinglePlayerPlayingState);
         }
 
         private bool TryPause()
         {
-            if (!CanPause()) return false;
+            if (!CanPause())
+                return false;
 
             paused = true;
             timeScaleBeforePause = Time.timeScale;
+
             Time.timeScale = 0f;
 
-            // Bloquear solo el tablero evita reiniciar la musica al reanudar.
             boardView.SetInputEnabled(false);
             pauseSettings.SetOpenButtonAvailable(false);
+
             return true;
         }
 
         private void BeginResumeCountdown()
         {
-            if (paused && !leaving && resumeCountdown == null && isActiveAndEnabled)
-                resumeCountdown = StartCoroutine(ResumeAfterCountdown());
+            if (paused &&
+                !leaving &&
+                resumeCountdown == null &&
+                isActiveAndEnabled)
+            {
+                resumeCountdown =
+                    StartCoroutine(ResumeAfterCountdown());
+            }
         }
 
         private IEnumerator ResumeAfterCountdown()
@@ -188,41 +253,54 @@ namespace DuckSoup.Bootstrap
             for (int number = 3; number > 0; number--)
             {
                 gameView.ShowOverlay(number.ToString());
+
                 yield return new WaitForSecondsRealtime(1f);
             }
 
             gameView.HideOverlay();
             boardView.SetInputEnabled(true);
+
             Time.timeScale = timeScaleBeforePause;
+
             paused = false;
             resumeCountdown = null;
         }
 
         private bool TryAbandonRun()
         {
-            if (!paused || leaving || resumeCountdown != null) return false;
+            if (!paused || leaving || resumeCountdown != null)
+                return false;
 
-            // El fundido avanza con la partida pausada.
             leaving = true;
-            if (SceneFadeTransition.LoadScene(mainMenuSceneName)) return true;
+
+            if (SceneFadeTransition.LoadScene(mainMenuSceneName))
+                return true;
 
             leaving = false;
+
             return false;
         }
 
         private void SaveFinalResult()
         {
-            if (resultSaved || leaving) return;
+            if (resultSaved || leaving)
+                return;
+
             try
             {
-                int previousTotal = progressStore.GetTotalRecipesCompleted();
-                // Se usa TableId: cada mesa guarda SU PROPIO highscore.
+                int previousTotal =
+                    progressStore.GetTotalRecipesCompleted();
+
                 progressStore.RegisterSinglePlayerRun(
                     launchRequest.TableId,
                     session.ActualRecipesCompleted,
                     session.CompletedRecipes);
+
                 resultSaved = true;
-                SinglePlayerRewardHandoff.Queue(previousTotal, session.ActualRecipesCompleted);
+
+                SinglePlayerRewardHandoff.Queue(
+                    previousTotal,
+                    session.ActualRecipesCompleted);
             }
             catch (Exception ex)
             {
@@ -232,22 +310,29 @@ namespace DuckSoup.Bootstrap
 
         private void ReturnToMainMenu()
         {
-            if (!UnityEngine.Application.CanStreamedLevelBeLoaded(mainMenuSceneName))
+            if (!UnityEngine.Application.CanStreamedLevelBeLoaded(
+                mainMenuSceneName))
             {
-                Debug.LogError("[1P] MainMenuScene falta en Build Settings.", this);
+                Debug.LogError(
+                    "[1P] MainMenuScene falta en Build Settings.",
+                    this);
+
                 return;
             }
+
             SceneFadeTransition.LoadScene(mainMenuSceneName);
         }
 
-        private void OnApplicationPause(bool paused)
+        private void OnApplicationPause(bool applicationPaused)
         {
-            if (paused) boardView?.CancelAllDrags();
+            if (applicationPaused)
+                boardView?.CancelAllDrags();
         }
 
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (!hasFocus) boardView?.CancelAllDrags();
+            if (!hasFocus)
+                boardView?.CancelAllDrags();
         }
 
         private void OnDisable()
@@ -257,16 +342,24 @@ namespace DuckSoup.Bootstrap
                 StopCoroutine(resumeCountdown);
                 resumeCountdown = null;
             }
+
             if (paused)
             {
                 Time.timeScale = timeScaleBeforePause;
                 paused = false;
-                if (gameView != null) gameView.HideOverlay();
+
+                if (gameView != null)
+                    gameView.HideOverlay();
             }
 
-            if (pauseSettings != null) pauseSettings.ResetPausePanel();
-            if (boardView != null) boardView.SetInputEnabled(false);
+            if (pauseSettings != null)
+                pauseSettings.ResetPausePanel();
+
+            if (boardView != null)
+                boardView.SetInputEnabled(false);
+
             stateMachine?.Stop();
+
             leaving = false;
         }
     }

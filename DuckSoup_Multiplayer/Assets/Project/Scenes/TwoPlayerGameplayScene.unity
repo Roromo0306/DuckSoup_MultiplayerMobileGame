@@ -1677,6 +1677,13 @@ MonoBehaviour:
   beltSprite: {fileID: 0}
   upperBeltColor: {r: 0.4, g: 0.69, b: 0.81, a: 0}
   lowerBeltColor: {r: 0.87, g: 0.59, b: 0.33, a: 0}
+  classicBackgroundSprite: {fileID: 0}
+  conveyorBackgroundSprite: {fileID: 0}
+  backgroundRenderer: {fileID: 0}
+  backgroundImage: {fileID: 0}
+  gameplayMusicSource: {fileID: 282399381}
+  classicMusicClip: {fileID: 8300000, guid: 50ab5eeace2877b4da20b83e6e741013, type: 3}
+  conveyorMusicClip: {fileID: 8300000, guid: eb903795a9ddc86418282a2c5d594900, type: 3}
   speed: 90
   horizontalGap: 18
   maximumTokenVisualScale: 1.2
@@ -1684,11 +1691,6 @@ MonoBehaviour:
   beltExtraHeight: 26
   countdownOrTimeUpOverlay: {fileID: 2117154811}
   resultsPanel: {fileID: 1577888482}
-  classicBackground: {fileID: 697236964}
-  conveyorBackground: {fileID: 703200640}
-  gameplayMusicSource: {fileID: 282399381}
-  classicMusicClip: {fileID: 8300000, guid: 50ab5eeace2877b4da20b83e6e741013, type: 3}
-  conveyorMusicClip: {fileID: 8300000, guid: eb903795a9ddc86418282a2c5d594900, type: 3}
 --- !u!1 &703200640
 GameObject:
   m_ObjectHideFlags: 0
@@ -5034,6 +5036,19 @@ MonoBehaviour:
   poison: 9
   instantRecipe: 5
   clock: 7
+  adaptiveSpawning: 1
+  probabilityRampStart: 90
+  probabilityRampEnd: 30
+  extraTimeDeadline: 70
+  duckDeadline: 60
+  poopDeadline: 45
+  completeRecipeDeadline: 30
+  guaranteeLeadSeconds: 3
+  catchUpSpawning: 1
+  bonus6To10Percent: 20
+  bonus11To15Percent: 50
+  bonus16PlusPercent: 100
+  tokenSidesRoot: {fileID: 700795568}
 --- !u!1 &1891161785
 GameObject:
   m_ObjectHideFlags: 0

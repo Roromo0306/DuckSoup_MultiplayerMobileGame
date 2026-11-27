@@ -22,6 +22,8 @@ namespace DuckSoup.Features.PowerUps
         public float TokenLifetime { get; private set; }
         public int MaxActiveSpecials { get; private set; }
 
+        public PowerTokenSpawnRules AdaptiveSpawning { get; private set; }
+
         private readonly float noneWeight;
         private readonly float duckWeight;
         private readonly float poisonWeight;
@@ -61,7 +63,8 @@ namespace DuckSoup.Features.PowerUps
             float duck,
             float poison,
             float instant,
-            float clock)
+            float clock,
+            PowerTokenSpawnRules adaptiveSpawning = null)
         {
             RequirePositive(combo, nameof(combo));
             RequirePositive(extra, nameof(extra));
@@ -83,6 +86,7 @@ namespace DuckSoup.Features.PowerUps
             ExtraComboSeconds = extra;
             WrongSinglePlayerPenaltySeconds = penalty;
             MultiplayerLockSeconds = multiplayerLock;
+
             SpawnInterval = interval;
             TokenLifetime = lifetime;
             MaxActiveSpecials = maximum;
@@ -92,6 +96,42 @@ namespace DuckSoup.Features.PowerUps
             poisonWeight = poison;
             instantWeight = instant;
             clockWeight = clock;
+
+            AdaptiveSpawning = adaptiveSpawning;
+        }
+
+        public double GetBaseProbability(PowerTokenKind kind)
+        {
+            double total =
+                noneWeight +
+                duckWeight +
+                poisonWeight +
+                instantWeight +
+                clockWeight;
+
+            if (total <= 0.0)
+                return 0.0;
+
+            switch (kind)
+            {
+                case PowerTokenKind.None:
+                    return noneWeight / total;
+
+                case PowerTokenKind.WildcardDuck:
+                    return duckWeight / total;
+
+                case PowerTokenKind.Poison:
+                    return poisonWeight / total;
+
+                case PowerTokenKind.CompleteRecipe:
+                    return instantWeight / total;
+
+                case PowerTokenKind.ExtraComboTime:
+                    return clockWeight / total;
+
+                default:
+                    return 0.0;
+            }
         }
 
         public PowerTokenKind Draw(IRandomSource random)
@@ -107,7 +147,7 @@ namespace DuckSoup.Features.PowerUps
                 return PowerTokenKind.None;
 
             float roll =
-                (random.NextInt(0, 1000000) / 1000000f) * total;
+                random.NextInt(0, 1000000) / 1000000f * total;
 
             if ((roll -= noneWeight) < 0f)
                 return PowerTokenKind.None;

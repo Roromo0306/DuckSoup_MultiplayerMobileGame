@@ -18,10 +18,27 @@ namespace DuckSoup.Features.Menu.Views
         [TextArea(4, 12)]
         [SerializeField] private string informationText = "";
 
+        [Header("Medal scores")]
+        [SerializeField, Min(1)] private int bronzeScore = 10;
+        [SerializeField, Min(1)] private int silverScore = 20;
+        [SerializeField, Min(1)] private int goldScore = 30;
+        [SerializeField, Min(1)] private int masterScore = 40;
+
         public string Id => tableId;
         public string DisplayName => displayName;
         public Sprite PreviewSprite => previewSprite;
         public string InformationText => informationText;
+
+        public int BronzeScore => bronzeScore;
+        public int SilverScore => silverScore;
+        public int GoldScore => goldScore;
+        public int MasterScore => masterScore;
+
+        public bool HasValidMedalScores =>
+            bronzeScore > 0 &&
+            silverScore > bronzeScore &&
+            goldScore > silverScore &&
+            masterScore > goldScore;
     }
 
     public sealed class TableSelectorView : MonoBehaviour
@@ -33,6 +50,9 @@ namespace DuckSoup.Features.Menu.Views
         [SerializeField] private Image tableImage;
         [SerializeField] private TextMeshProUGUI tableNameText;
         [SerializeField] private TextMeshProUGUI highScoreText;
+
+        [Header("Medals")]
+        [SerializeField] private TableMedalsView medalsView;
 
         [Header("Navigation")]
         [SerializeField] private Button previousButton;
@@ -66,7 +86,6 @@ namespace DuckSoup.Features.Menu.Views
 
         public event Action<TableDisplayData> TableViewed;
 
-        // Devuelve la mesa que está mostrando el selector.
         public TableDisplayData CurrentTable
         {
             get
@@ -193,8 +212,12 @@ namespace DuckSoup.Features.Menu.Views
 
             tableNameText.text = table.DisplayName;
 
-            highScoreText.text =
-                "HIGH SCORE: " + progressStore.GetTableHighScore(table.Id);
+            int highScore = progressStore.GetTableHighScore(table.Id);
+
+            highScoreText.text = "HIGH SCORE: " + highScore;
+
+            if (medalsView != null)
+                medalsView.Render(table, highScore);
 
             tableImage.sprite = table.PreviewSprite;
             tableImage.enabled = table.PreviewSprite != null;
@@ -205,7 +228,6 @@ namespace DuckSoup.Features.Menu.Views
             if (selectButtonText != null)
                 selectButtonText.text = "SELECT";
 
-            // Actualiza la información al cambiar la mesa visible.
             TableViewed?.Invoke(table);
         }
 
@@ -317,6 +339,14 @@ namespace DuckSoup.Features.Menu.Views
                 {
                     throw new InvalidOperationException(
                         "[TableSelector] Invalid table data.");
+                }
+
+                if (!table.HasValidMedalScores)
+                {
+                    throw new InvalidOperationException(
+                        "[TableSelector] Revisa las puntuaciones de " +
+                        table.DisplayName +
+                        ": deben cumplir 0 < Bronze < Silver < Gold < Master.");
                 }
             }
         }
