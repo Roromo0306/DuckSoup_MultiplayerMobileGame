@@ -45,7 +45,7 @@ namespace DuckSoup.Features.PowerUps
                 radialFillImage.fillOrigin =
                     (int)Image.Origin360.Top;
 
-                radialFillImage.fillClockwise = true;
+                radialFillImage.fillClockwise = false;
                 radialFillImage.fillAmount = 1f;
             }
 

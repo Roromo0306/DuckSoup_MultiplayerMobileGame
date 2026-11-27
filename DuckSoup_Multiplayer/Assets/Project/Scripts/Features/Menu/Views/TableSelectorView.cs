@@ -122,7 +122,6 @@ namespace DuckSoup.Features.Menu.Views
             nextButton.onClick.AddListener(NextTable);
             closeButton.onClick.AddListener(Hide);
 
-            // SELECT sigue controlado por TableSelectDirectInput.
             if (selectButtonText == null)
             {
                 selectButtonText =
@@ -151,8 +150,6 @@ namespace DuckSoup.Features.Menu.Views
             Refresh();
 
             carouselFeel?.ResetVisual(true);
-
-            Log("OPEN");
         }
 
         public void Hide()
@@ -161,8 +158,6 @@ namespace DuckSoup.Features.Menu.Views
                 return;
 
             panelRoot.SetActive(false);
-
-            Log("CLOSE | Panel active: " + panelRoot.activeSelf);
         }
 
         private void PreviousTable()
@@ -212,7 +207,8 @@ namespace DuckSoup.Features.Menu.Views
 
             tableNameText.text = table.DisplayName;
 
-            int highScore = progressStore.GetTableHighScore(table.Id);
+            int highScore =
+                progressStore.GetTableHighScore(table.Id);
 
             highScoreText.text = "HIGH SCORE: " + highScore;
 
@@ -249,18 +245,11 @@ namespace DuckSoup.Features.Menu.Views
             {
                 if (mainMenuSelectedTableText != null)
                 {
-                    mainMenuSelectedTableText.text = selected.DisplayName;
-                }
-                else
-                {
-                    Debug.LogWarning(
-                        "[TableSelector] Asigna Main Menu Selected Table Text.",
-                        this);
+                    mainMenuSelectedTableText.text =
+                        selected.DisplayName;
                 }
 
                 tableConfirmed?.Invoke(selected);
-
-                Log("SELECTED: " + selected.Id);
             }
             catch (Exception e)
             {
@@ -271,6 +260,37 @@ namespace DuckSoup.Features.Menu.Views
                 Hide();
                 confirming = false;
             }
+        }
+
+        public bool TryGetTableById(
+            string tableId,
+            out TableDisplayData table)
+        {
+            table = null;
+
+            if (tables == null ||
+                string.IsNullOrWhiteSpace(tableId))
+            {
+                return false;
+            }
+
+            string id = tableId.Trim();
+
+            foreach (TableDisplayData candidate in tables)
+            {
+                if (candidate != null &&
+                    !string.IsNullOrWhiteSpace(candidate.Id) &&
+                    string.Equals(
+                        candidate.Id.Trim(),
+                        id,
+                        StringComparison.Ordinal))
+                {
+                    table = candidate;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public bool TrySelectTableById(
@@ -346,7 +366,7 @@ namespace DuckSoup.Features.Menu.Views
                     throw new InvalidOperationException(
                         "[TableSelector] Revisa las puntuaciones de " +
                         table.DisplayName +
-                        ": deben cumplir 0 < Bronze < Silver < Gold < Master.");
+                        ": 0 < Bronze < Silver < Gold < Master.");
                 }
             }
         }

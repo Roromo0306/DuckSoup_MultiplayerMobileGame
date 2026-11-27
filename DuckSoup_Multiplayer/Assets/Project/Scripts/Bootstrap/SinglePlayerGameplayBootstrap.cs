@@ -31,7 +31,7 @@ namespace DuckSoup.Bootstrap
         [SerializeField] private SettingsPanelView pauseSettings;
 
         [Header("Session")]
-        [SerializeField, Min(1f)] private float gameDuration = 60f;
+        [SerializeField, Min(1f)] private float gameDuration = 90f;
         [SerializeField, Min(0.1f)] private float ingredientRevealSeconds = 3f;
         [SerializeField, Min(0.1f)] private float recipeReplacementSeconds = 1.5f;
         [SerializeField, Min(0.1f)] private float tokenRefillSeconds = 1.2f;
@@ -66,6 +66,8 @@ namespace DuckSoup.Bootstrap
 
         private void Awake()
         {
+            SinglePlayerRewardHandoff.Clear();
+
             Time.timeScale = 1f;
 
             if (boardView == null || gameView == null)
@@ -154,11 +156,6 @@ namespace DuckSoup.Bootstrap
                     timeUpDisplaySeconds);
 
                 initialized = true;
-
-                Debug.Log(
-                    $"[1P] Mesa: {launchRequest.TableId}; " +
-                    $"cinta: {conveyorSelected}.",
-                    this);
             }
             catch (Exception ex)
             {
@@ -291,6 +288,10 @@ namespace DuckSoup.Bootstrap
                 int previousTotal =
                     progressStore.GetTotalRecipesCompleted();
 
+                int previousHighScore =
+                    progressStore.GetTableHighScore(
+                        launchRequest.TableId);
+
                 progressStore.RegisterSinglePlayerRun(
                     launchRequest.TableId,
                     session.ActualRecipesCompleted,
@@ -300,7 +301,11 @@ namespace DuckSoup.Bootstrap
 
                 SinglePlayerRewardHandoff.Queue(
                     previousTotal,
-                    session.ActualRecipesCompleted);
+                    session.ActualRecipesCompleted,
+                    launchRequest.TableId,
+                    previousHighScore,
+                    progressStore.GetTableHighScore(
+                        launchRequest.TableId));
             }
             catch (Exception ex)
             {
