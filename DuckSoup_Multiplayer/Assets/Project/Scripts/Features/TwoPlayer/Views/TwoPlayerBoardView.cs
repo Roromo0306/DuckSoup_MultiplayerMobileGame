@@ -138,9 +138,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
                 CancelAllDrags();
         }
 
-        public bool TryBeginToken(
-            string tokenId,
-            int pointerId)
+        public bool TryBeginToken(string tokenId, int pointerId)
         {
             if (!inputEnabled || session == null)
                 return false;
@@ -151,7 +149,9 @@ namespace DuckSoup.Features.TwoPlayer.Views
             if (accepted)
             {
                 Refresh();
-                DuckSoupSoundPlayer.Play(DuckSoupSoundId.IngredientTap);
+
+                DuckSoupSoundPlayer.Play(
+                    DuckSoupSoundId.IngredientTap);
             }
 
             return accepted;
@@ -176,6 +176,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
                 return false;
 
             pointerActors[pointerId] = actor;
+
             return true;
         }
 
@@ -196,11 +197,19 @@ namespace DuckSoup.Features.TwoPlayer.Views
                 return;
 
             if (session.PowerUpsEnabled)
-                card.GetComponent<RecipeCardFeel>()?.CelebrateCombo();
+            {
+                card.GetComponent<RecipeCardFeel>()?
+                    .CelebrateCombo();
+            }
             else
-                card.GetComponent<RecipeCardFeel>()?.Complete();
+            {
+                card.GetComponent<RecipeCardFeel>()?
+                    .Complete();
+            }
 
-            DuckSoupSoundPlayer.Play(DuckSoupSoundId.RecipeCompleted);
+            DuckSoupSoundPlayer.Play(
+                DuckSoupSoundId.RecipeCompleted);
+
             RecipeCompleted?.Invoke(card.Owner);
         }
 
@@ -223,11 +232,15 @@ namespace DuckSoup.Features.TwoPlayer.Views
 
             pointerActors.Remove(pointerId);
 
-            PowerTokenKind special = session.GetPowerKind(tokenId);
+            PowerTokenKind special =
+                session.GetPowerKind(tokenId);
 
             if (inputEnabled &&
                 wasDragged &&
-                TryFindTargetCard(screenPoint, eventCamera, out target))
+                TryFindTargetCard(
+                    screenPoint,
+                    eventCamera,
+                    out target))
             {
                 cardWasLocked = session.IsCardLocked(
                     target.Owner,
@@ -236,7 +249,9 @@ namespace DuckSoup.Features.TwoPlayer.Views
                 if (cardWasLocked)
                 {
                     session.CancelGesture(tokenId, pointerId);
-                    powerUpHud?.ShowFeedback("CARD LOCKED!");
+
+                    powerUpHud?.ShowFeedback(
+                        "CARD LOCKED!");
                 }
                 else
                 {
@@ -268,12 +283,19 @@ namespace DuckSoup.Features.TwoPlayer.Views
 
                     if (!accepted && wrongIngredient)
                     {
-                        bool locked = session.ApplyWrongDeliveryPenalty(
-                            target.Owner,
-                            target.CardId);
+                        bool locked =
+                            session.ApplyWrongDeliveryPenalty(
+                                target.Owner,
+                                target.CardId);
 
                         if (locked)
-                            powerUpHud?.ShowFeedback("CARD LOCKED!");
+                        {
+                            DuckSoupSoundPlayer.Play(
+                                DuckSoupSoundId.CardLocked);
+
+                            powerUpHud?.ShowFeedback(
+                                "CARD LOCKED!");
+                        }
                     }
                 }
 
@@ -303,10 +325,17 @@ namespace DuckSoup.Features.TwoPlayer.Views
                         feel?.Complete();
                 }
 
-                DuckSoupSoundPlayer.Play(
-                    accepted
-                        ? DuckSoupSoundId.CorrectIngredient
-                        : DuckSoupSoundId.IncorrectIngredient);
+                if (accepted && special != PowerTokenKind.None)
+                {
+                    DuckSoupSoundPlayer.PlayPowerUp(special);
+                }
+                else
+                {
+                    DuckSoupSoundPlayer.Play(
+                        accepted
+                            ? DuckSoupSoundId.CorrectIngredient
+                            : DuckSoupSoundId.IncorrectIngredient);
+                }
 
                 if (accepted && special != PowerTokenKind.None)
                 {
@@ -321,7 +350,9 @@ namespace DuckSoup.Features.TwoPlayer.Views
 
             if (completed)
             {
-                DuckSoupSoundPlayer.Play(DuckSoupSoundId.RecipeCompleted);
+                DuckSoupSoundPlayer.Play(
+                    DuckSoupSoundId.RecipeCompleted);
+
                 RecipeCompleted?.Invoke(completedBy);
             }
 
@@ -333,6 +364,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
             int pointerId)
         {
             pointerActors.Remove(pointerId);
+
             session?.CancelGesture(tokenId, pointerId);
         }
 
@@ -360,6 +392,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
             }
 
             target = null;
+
             return false;
         }
 
@@ -370,26 +403,37 @@ namespace DuckSoup.Features.TwoPlayer.Views
 
             TwoPlayerSnapshot snapshot = session.GetSnapshot();
 
-            for (int i = 0; i < TwoPlayerSession.CardsPerPlayer; i++)
+            for (int c = 0; c < TwoPlayerSession.CardsPerPlayer; c++)
             {
-                cards1[i].Bind(snapshot.Player1Cards[i], PlayerId.Player1);
-                cards2[i].Bind(snapshot.Player2Cards[i], PlayerId.Player2);
+                cards1[c].Bind(
+                    snapshot.Player1Cards[c],
+                    PlayerId.Player1);
 
-                cards1[i].GetComponent<RecipeCardArtView>()?
-                    .Render(snapshot.Player1Cards[i]);
+                cards2[c].Bind(
+                    snapshot.Player2Cards[c],
+                    PlayerId.Player2);
 
-                cards2[i].GetComponent<RecipeCardArtView>()?
-                    .Render(snapshot.Player2Cards[i]);
+                cards1[c]
+                    .GetComponent<RecipeCardArtView>()?
+                    .Render(snapshot.Player1Cards[c]);
 
-                cards1[i].GetComponent<RecipeCardFeel>()?.ObserveCard(
-                    snapshot.Player1Cards[i].CardId,
-                    DealOrigin(player1DealOrigins, i),
-                    i);
+                cards2[c]
+                    .GetComponent<RecipeCardArtView>()?
+                    .Render(snapshot.Player2Cards[c]);
 
-                cards2[i].GetComponent<RecipeCardFeel>()?.ObserveCard(
-                    snapshot.Player2Cards[i].CardId,
-                    DealOrigin(player2DealOrigins, i),
-                    i);
+                cards1[c]
+                    .GetComponent<RecipeCardFeel>()?
+                    .ObserveCard(
+                        snapshot.Player1Cards[c].CardId,
+                        DealOrigin(player1DealOrigins, c),
+                        c);
+
+                cards2[c]
+                    .GetComponent<RecipeCardFeel>()?
+                    .ObserveCard(
+                        snapshot.Player2Cards[c].CardId,
+                        DealOrigin(player2DealOrigins, c),
+                        c);
             }
 
             for (int i = 0; i < TwoPlayerSession.TokenSlots; i++)
@@ -411,7 +455,10 @@ namespace DuckSoup.Features.TwoPlayer.Views
                 card.GetComponent<RecipeCardLockOverlay>();
 
             if (overlay == null)
-                overlay = card.gameObject.AddComponent<RecipeCardLockOverlay>();
+            {
+                overlay =
+                    card.gameObject.AddComponent<RecipeCardLockOverlay>();
+            }
 
             overlay.Configure(cardLockIcon);
         }
@@ -463,6 +510,7 @@ namespace DuckSoup.Features.TwoPlayer.Views
             }
 
             pointerActors.Clear();
+
             session?.CancelAllGestures();
         }
 

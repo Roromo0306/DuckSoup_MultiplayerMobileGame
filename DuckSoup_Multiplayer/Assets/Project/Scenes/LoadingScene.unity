@@ -478,6 +478,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2678436521538386007, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: comboX2
+      value: 
+      objectReference: {fileID: 8300000, guid: 6f9a2866f50d92b4ea1673473f8ace36, type: 3}
+    - target: {fileID: 2678436521538386007, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: comboX3
+      value: 
+      objectReference: {fileID: 8300000, guid: 6f9a2866f50d92b4ea1673473f8ace36, type: 3}
+    - target: {fileID: 2678436521538386007, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: poopUsed
+      value: 
+      objectReference: {fileID: 8300000, guid: 1a967992a94005044b9004aa292b5f8a, type: 3}
+    - target: {fileID: 2678436521538386007, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: cardLocked
+      value: 
+      objectReference: {fileID: 8300000, guid: f221976b1df32b547879857ea163c24b, type: 3}
+    - target: {fileID: 2678436521538386007, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: wildcardDuckUsed
+      value: 
+      objectReference: {fileID: 8300000, guid: 1cdec11ecbc702a459d73c55da6a473b, type: 3}
+    - target: {fileID: 2678436521538386007, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: completeRecipeUsed
+      value: 
+      objectReference: {fileID: 8300000, guid: eb2d6a8902b307c47b944a9c7b7aa64f, type: 3}
+    - target: {fileID: 2678436521538386007, guid: ec514583de790214d8478939d2d2d82d, type: 3}
+      propertyPath: extraComboTimeUsed
+      value: 
+      objectReference: {fileID: 8300000, guid: 2b9e468ae21023549993d9bfdda0a223, type: 3}
     - target: {fileID: 7813443883594914837, guid: ec514583de790214d8478939d2d2d82d, type: 3}
       propertyPath: m_LocalPosition.x
       value: 341.5037

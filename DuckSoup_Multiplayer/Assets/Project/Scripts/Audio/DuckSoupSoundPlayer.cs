@@ -1,4 +1,4 @@
-
+using DuckSoup.Features.PowerUps;
 using UnityEngine;
 
 namespace DuckSoup.Features.Audio
@@ -8,8 +8,7 @@ namespace DuckSoup.Features.Audio
     public sealed class DuckSoupSoundPlayer : MonoBehaviour
     {
         [Header("Audio Source - DuckSoupMixer / SFX")]
-        [SerializeField]
-        private AudioSource sfxSource;
+        [SerializeField] private AudioSource sfxSource;
 
         [Header("Main Menu")]
         [SerializeField] private AudioClip buttonClick;
@@ -27,6 +26,19 @@ namespace DuckSoup.Features.Audio
         [SerializeField] private AudioClip recipeCompleted;
         [SerializeField] private AudioClip timeUp;
 
+        [Header("Card lock - Multiplayer")]
+        [SerializeField] private AudioClip cardLocked;
+
+        [Header("Combos - Both Modes")]
+        [SerializeField] private AudioClip comboX2;
+        [SerializeField] private AudioClip comboX3;
+
+        [Header("Special Tokens - Both Modes")]
+        [SerializeField] private AudioClip wildcardDuckUsed;
+        [SerializeField] private AudioClip poopUsed;
+        [SerializeField] private AudioClip completeRecipeUsed;
+        [SerializeField] private AudioClip extraComboTimeUsed;
+
         [Header("Two Player Results")]
         [SerializeField] private AudioClip winner;
         [SerializeField] private AudioClip confetti;
@@ -36,15 +48,12 @@ namespace DuckSoup.Features.Audio
         private AudioClip[] duckVoices = new AudioClip[4];
 
         [Header("Debug")]
-        [SerializeField]
-        private bool warnAboutMissingClips;
+        [SerializeField] private bool warnAboutMissingClips;
 
         private static DuckSoupSoundPlayer instance;
 
         private void Awake()
         {
-            // Evitar reproductores duplicados al
-            // cambiar entre escenas.
             if (instance != null && instance != this)
             {
                 Destroy(gameObject);
@@ -61,8 +70,6 @@ namespace DuckSoup.Features.Audio
             sfxSource.spatialBlend = 0f;
             sfxSource.pitch = 1f;
 
-            // Los efectos pueden seguir sonando
-            // aunque cambiemos de escena.
             DontDestroyOnLoad(gameObject);
         }
 
@@ -76,6 +83,37 @@ namespace DuckSoup.Features.Audio
             instance.PlayClip(
                 clip,
                 soundId.ToString());
+        }
+
+        public static void PlayCombo(int multiplier)
+        {
+            if (multiplier == 2)
+                Play(DuckSoupSoundId.ComboX2);
+            else if (multiplier == 3)
+                Play(DuckSoupSoundId.ComboX3);
+        }
+
+        public static void PlayPowerUp(PowerTokenKind kind)
+        {
+            switch (kind)
+            {
+                case PowerTokenKind.WildcardDuck:
+                    Play(DuckSoupSoundId.WildcardDuckUsed);
+                    break;
+
+                case PowerTokenKind.Poison:
+                    // Poison es el nombre interno que ya usa la caca.
+                    Play(DuckSoupSoundId.PoopUsed);
+                    break;
+
+                case PowerTokenKind.CompleteRecipe:
+                    Play(DuckSoupSoundId.CompleteRecipeUsed);
+                    break;
+
+                case PowerTokenKind.ExtraComboTime:
+                    Play(DuckSoupSoundId.ExtraComboTimeUsed);
+                    break;
+            }
         }
 
         public static void PlayDuck(int duckIndex)
@@ -94,17 +132,14 @@ namespace DuckSoup.Features.Audio
                 return;
             }
 
-            AudioClip clip =
-                instance.duckVoices[duckIndex];
+            AudioClip clip = instance.duckVoices[duckIndex];
 
             instance.PlayClip(
                 clip,
                 "Duck " + (duckIndex + 1));
         }
 
-        private void PlayClip(
-            AudioClip clip,
-            string label)
+        private void PlayClip(AudioClip clip, string label)
         {
             if (sfxSource == null)
                 return;
@@ -114,16 +149,14 @@ namespace DuckSoup.Features.Audio
                 if (warnAboutMissingClips)
                 {
                     Debug.LogWarning(
-                        "[DuckSoupAudio] Missing clip: " +
-                        label,
+                        "[DuckSoupAudio] Missing clip: " + label,
                         this);
                 }
 
                 return;
             }
 
-            // Permite reproducir varios efectos
-            // a la vez, incluido el multitactil.
+            // Permite varios efectos simultaneos.
             sfxSource.PlayOneShot(clip);
         }
 
@@ -166,6 +199,27 @@ namespace DuckSoup.Features.Audio
 
                 case DuckSoupSoundId.Confetti:
                     return confetti;
+
+                case DuckSoupSoundId.CardLocked:
+                    return cardLocked;
+
+                case DuckSoupSoundId.ComboX2:
+                    return comboX2;
+
+                case DuckSoupSoundId.ComboX3:
+                    return comboX3;
+
+                case DuckSoupSoundId.WildcardDuckUsed:
+                    return wildcardDuckUsed;
+
+                case DuckSoupSoundId.PoopUsed:
+                    return poopUsed;
+
+                case DuckSoupSoundId.CompleteRecipeUsed:
+                    return completeRecipeUsed;
+
+                case DuckSoupSoundId.ExtraComboTimeUsed:
+                    return extraComboTimeUsed;
 
                 default:
                     return null;

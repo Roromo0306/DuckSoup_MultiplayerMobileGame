@@ -1,3 +1,4 @@
+using DuckSoup.Features.Audio;
 using System.Collections.Generic;
 using DuckSoup.Domain;
 using DuckSoup.Features.Round.Views;
@@ -18,7 +19,6 @@ namespace DuckSoup.Features.PowerUps
 
         [Header("Power-up messages")]
         [SerializeField] private TextMeshProUGUI feedbackText;
-
         [SerializeField, Min(0.1f)]
         private float feedbackSeconds = 1.2f;
 
@@ -52,8 +52,7 @@ namespace DuckSoup.Features.PowerUps
             single = session;
             multi = null;
 
-            cards1 = null;
-            cards2 = null;
+            cards1 = cards2 = null;
             pending.Clear();
 
             single.ComboScored += QueueSingleCombo;
@@ -68,8 +67,7 @@ namespace DuckSoup.Features.PowerUps
             multi = session;
             single = null;
 
-            cards1 = null;
-            cards2 = null;
+            cards1 = cards2 = null;
             pending.Clear();
 
             multi.ComboScored += QueueCombo;
@@ -77,9 +75,7 @@ namespace DuckSoup.Features.PowerUps
             HideOldText();
         }
 
-        private void QueueSingleCombo(
-            int slot,
-            int multiplier)
+        private void QueueSingleCombo(int slot, int multiplier)
         {
             QueueCombo(PlayerId.Player1, slot, multiplier);
         }
@@ -89,6 +85,8 @@ namespace DuckSoup.Features.PowerUps
             int slot,
             int multiplier)
         {
+            DuckSoupSoundPlayer.PlayCombo(multiplier);
+
             pending.Enqueue(new ComboPopup
             {
                 Player = player,
@@ -167,8 +165,8 @@ namespace DuckSoup.Features.PowerUps
 
                 if (next.Slot >= 0 && next.Slot < cards.Length)
                 {
-                    GetOverlay(cards[next.Slot]).PlayCombo(
-                        next.Multiplier);
+                    GetOverlay(cards[next.Slot])
+                        .PlayCombo(next.Multiplier);
                 }
             }
 
@@ -214,6 +212,7 @@ namespace DuckSoup.Features.PowerUps
                 return false;
 
             cards = found;
+
             return true;
         }
 

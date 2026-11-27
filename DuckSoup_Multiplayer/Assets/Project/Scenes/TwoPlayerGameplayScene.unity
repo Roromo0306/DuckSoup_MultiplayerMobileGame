@@ -1677,10 +1677,10 @@ MonoBehaviour:
   beltSprite: {fileID: 0}
   upperBeltColor: {r: 0.4, g: 0.69, b: 0.81, a: 0}
   lowerBeltColor: {r: 0.87, g: 0.59, b: 0.33, a: 0}
-  classicBackgroundSprite: {fileID: 0}
-  conveyorBackgroundSprite: {fileID: 0}
+  classicBackgroundSprite: {fileID: 21300000, guid: 286ec5659fd1fa942a677182b97b49fc, type: 3}
+  conveyorBackgroundSprite: {fileID: 21300000, guid: 46ba949c2f218af4c857e5545b056815, type: 3}
   backgroundRenderer: {fileID: 0}
-  backgroundImage: {fileID: 0}
+  backgroundImage: {fileID: 697236966}
   gameplayMusicSource: {fileID: 282399381}
   classicMusicClip: {fileID: 8300000, guid: 50ab5eeace2877b4da20b83e6e741013, type: 3}
   conveyorMusicClip: {fileID: 8300000, guid: eb903795a9ddc86418282a2c5d594900, type: 3}
@@ -5574,10 +5574,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 554150453}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 1080, y: 2162}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2073302313
 MonoBehaviour:

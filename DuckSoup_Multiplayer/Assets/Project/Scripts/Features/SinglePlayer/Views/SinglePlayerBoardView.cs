@@ -1,10 +1,10 @@
+using DuckSoup.Features.Audio;
+using DuckSoup.Features.PowerUps;
 using System;
 using System.Collections.Generic;
 using DuckSoup.Domain;
-using DuckSoup.Features.Audio;
-using DuckSoup.Features.Art;
 using DuckSoup.Features.GameFeel.UI;
-using DuckSoup.Features.PowerUps;
+using DuckSoup.Features.Art;
 using DuckSoup.Features.Round.Views;
 using DuckSoup.Features.SinglePlayer.Models;
 using DuckSoup.Features.SinglePlayer.Services;
@@ -23,10 +23,9 @@ namespace DuckSoup.Features.SinglePlayer.Views
         [SerializeField] private RecipeCardView recipeCardPrefab;
         [SerializeField] private SinglePlayerTokenView tokenPrefab;
 
-        [Header("Game Feel")]
+        [Header("Game Feel - deal origins (left, center, right), optional")]
         [SerializeField]
-        private RectTransform[] dealOrigins =
-            new RectTransform[3];
+        private RectTransform[] dealOrigins = new RectTransform[3];
 
         private SinglePlayerSession session;
 
@@ -101,7 +100,10 @@ namespace DuckSoup.Features.SinglePlayer.Views
                 return false;
 
             Refresh();
-            DuckSoupSoundPlayer.Play(DuckSoupSoundId.IngredientTap);
+
+            DuckSoupSoundPlayer.Play(
+                DuckSoupSoundId.IngredientTap);
+
             return true;
         }
 
@@ -120,15 +122,21 @@ namespace DuckSoup.Features.SinglePlayer.Views
             bool wrongIngredient = false;
 
             RecipeCardView target = null;
-            PowerTokenKind special = session.GetPowerKind(tokenId);
+
+            PowerTokenKind special =
+                session.GetPowerKind(tokenId);
 
             if (inputEnabled &&
                 wasDragged &&
-                TryFindCard(screenPosition, eventCamera, out target))
+                TryFindCard(
+                    screenPosition,
+                    eventCamera,
+                    out target))
             {
-                wrongIngredient = session.IsWrongIngredientForCard(
-                    tokenId,
-                    target.CardId);
+                wrongIngredient =
+                    session.IsWrongIngredientForCard(
+                        tokenId,
+                        target.CardId);
 
                 if (special != PowerTokenKind.None)
                 {
@@ -156,11 +164,12 @@ namespace DuckSoup.Features.SinglePlayer.Views
 
             if (target != null)
             {
-                RecipeCardFeel feel = target.GetComponent<RecipeCardFeel>();
+                RecipeCardFeel fx =
+                    target.GetComponent<RecipeCardFeel>();
 
                 if (!accepted)
                 {
-                    feel?.ShakeWrong();
+                    fx?.ShakeWrong();
 
                     if (wrongIngredient)
                     {
@@ -172,15 +181,22 @@ namespace DuckSoup.Features.SinglePlayer.Views
                 if (recipeCompleted)
                 {
                     if (session.PowerUpsEnabled)
-                        feel?.CelebrateCombo();
+                        fx?.CelebrateCombo();
                     else
-                        feel?.Complete();
+                        fx?.Complete();
                 }
 
-                DuckSoupSoundPlayer.Play(
-                    accepted
-                        ? DuckSoupSoundId.CorrectIngredient
-                        : DuckSoupSoundId.IncorrectIngredient);
+                if (accepted && special != PowerTokenKind.None)
+                {
+                    DuckSoupSoundPlayer.PlayPowerUp(special);
+                }
+                else
+                {
+                    DuckSoupSoundPlayer.Play(
+                        accepted
+                            ? DuckSoupSoundId.CorrectIngredient
+                            : DuckSoupSoundId.IncorrectIngredient);
+                }
 
                 if (accepted && special != PowerTokenKind.None)
                 {
@@ -195,7 +211,9 @@ namespace DuckSoup.Features.SinglePlayer.Views
 
             if (recipeCompleted)
             {
-                DuckSoupSoundPlayer.Play(DuckSoupSoundId.RecipeCompleted);
+                DuckSoupSoundPlayer.Play(
+                    DuckSoupSoundId.RecipeCompleted);
+
                 RecipeCompleted?.Invoke();
             }
 
@@ -216,7 +234,9 @@ namespace DuckSoup.Features.SinglePlayer.Views
             else
                 card.GetComponent<RecipeCardFeel>()?.Complete();
 
-            DuckSoupSoundPlayer.Play(DuckSoupSoundId.RecipeCompleted);
+            DuckSoupSoundPlayer.Play(
+                DuckSoupSoundId.RecipeCompleted);
+
             RecipeCompleted?.Invoke();
         }
 
@@ -242,6 +262,7 @@ namespace DuckSoup.Features.SinglePlayer.Views
             }
 
             result = null;
+
             return false;
         }
 
@@ -250,33 +271,38 @@ namespace DuckSoup.Features.SinglePlayer.Views
             if (session == null)
                 return;
 
-            SinglePlayerSnapshot snapshot = session.GetSnapshot();
+            SinglePlayerSnapshot snap = session.GetSnapshot();
 
             for (int i = 0; i < cardViews.Count; i++)
             {
-                cardViews[i].Bind(snapshot.Cards[i], PlayerId.Player1);
+                cardViews[i].Bind(
+                    snap.Cards[i],
+                    PlayerId.Player1);
 
-                cardViews[i].GetComponent<RecipeCardArtView>()?
-                    .Render(snapshot.Cards[i]);
+                cardViews[i]
+                    .GetComponent<RecipeCardArtView>()?
+                    .Render(snap.Cards[i]);
 
                 RectTransform origin =
                     dealOrigins != null && i < dealOrigins.Length
                         ? dealOrigins[i]
                         : null;
 
-                cardViews[i].GetComponent<RecipeCardFeel>()?.ObserveCard(
-                    snapshot.Cards[i].CardId,
-                    origin,
-                    i);
+                cardViews[i]
+                    .GetComponent<RecipeCardFeel>()?
+                    .ObserveCard(
+                        snap.Cards[i].CardId,
+                        origin,
+                        i);
             }
 
             for (int i = 0; i < tokenViews.Count; i++)
             {
                 tokenViews[i].Refresh(
-                    snapshot.Tokens[i],
-                    snapshot.Tokens[i] == null
+                    snap.Tokens[i],
+                    snap.Tokens[i] == null
                         ? PowerTokenKind.None
-                        : session.GetPowerKind(snapshot.Tokens[i].Id));
+                        : session.GetPowerKind(snap.Tokens[i].Id));
             }
         }
 

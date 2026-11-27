@@ -1,4 +1,3 @@
-
 namespace DuckSoup.Features.Audio
 {
     public enum DuckSoupSoundId
@@ -15,7 +14,14 @@ namespace DuckSoup.Features.Audio
         RecipeCompleted,
         TimeUp,
         Winner,
-        Confetti
+        Confetti,
+
+        CardLocked,
+        ComboX2,
+        ComboX3,
+        WildcardDuckUsed,
+        PoopUsed,
+        CompleteRecipeUsed,
+        ExtraComboTimeUsed
     }
 }
-
