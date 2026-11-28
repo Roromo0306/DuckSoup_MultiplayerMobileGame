@@ -1,20 +1,19 @@
-
 using System;
 using DuckSoup.Features.Menu.Contracts;
 using DuckSoup.Features.Menu.Models;
+using DuckSoup.Features.Menu.Services;
 
 namespace DuckSoup.Features.Menu.Controllers
 {
-    /// <summary>
-    /// Controla la selección del modo
-    /// y proporciona los datos del perfil.
-    /// </summary>
     public sealed class MainMenuController
     {
         private readonly IPlayerProgressStore progressStore;
         private readonly IMenuModeStore modeStore;
 
-        public string PlayerName { get; }
+        private readonly string defaultPlayerName;
+
+        public string PlayerName =>
+            PlayerNamePreferences.Load(defaultPlayerName);
 
         public GameMode SelectedMode { get; private set; }
 
@@ -37,13 +36,12 @@ namespace DuckSoup.Features.Menu.Controllers
             if (string.IsNullOrWhiteSpace(playerName))
             {
                 throw new ArgumentException(
-                    "El nombre no puede estar vacío.",
+                    "El nombre no puede estar vacio.",
                     nameof(playerName));
             }
 
-            PlayerName = playerName.Trim();
+            defaultPlayerName = playerName.Trim();
 
-            // Recuperamos la última selección.
             SelectedMode = modeStore.LoadMode();
         }
 
@@ -60,8 +58,6 @@ namespace DuckSoup.Features.Menu.Controllers
                 return;
 
             SelectedMode = mode;
-
-            // Guardamos la preferencia.
             modeStore.SaveMode(mode);
         }
     }

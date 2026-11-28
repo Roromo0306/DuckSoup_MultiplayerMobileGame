@@ -3,6 +3,7 @@ using DuckSoup.Features.SinglePlayer.Views;
 using DuckSoup.Features.TwoPlayer.Views;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Serialization;
 
 namespace DuckSoup.Features.Conveyor
 {
@@ -24,6 +25,13 @@ namespace DuckSoup.Features.Conveyor
         [SerializeField]
         private Color lowerBeltColor =
             new Color(0.87f, 0.59f, 0.33f, 0.60f);
+
+        [Header("Tablecloth GameObjects")]
+        [FormerlySerializedAs("classicBackground")]
+        [SerializeField] private GameObject classicTablecloth;
+
+        [FormerlySerializedAs("conveyorBackground")]
+        [SerializeField] private GameObject conveyorTablecloth;
 
         [Header("Table backgrounds (optional)")]
         [SerializeField] private Sprite classicBackgroundSprite;
@@ -72,24 +80,32 @@ namespace DuckSoup.Features.Conveyor
             public float WrapBoundary;
         }
 
-        private readonly Lane upper = new Lane { Direction = 1 };
-        private readonly Lane lower = new Lane { Direction = -1 };
+        private readonly Lane upper =
+            new Lane { Direction = 1 };
+
+        private readonly Lane lower =
+            new Lane { Direction = -1 };
 
         private RectTransform root;
         private GridLayoutGroup grid;
         private Vector2 tokenSize;
 
+        private float speedMultiplier = 1f;
+
+        private bool configured;
         private bool useConveyor;
         private bool built;
 
-        private float speedMultiplier = 1f;
-
-        public bool IsConveyorActive => useConveyor && built;
+        public bool IsConveyorActive =>
+            useConveyor && built;
 
         public void Configure(bool enabledForThisRound)
         {
             useConveyor = enabledForThisRound;
+            configured = true;
             speedMultiplier = 1f;
+
+            ApplyTablecloths();
 
             AudioClip music = useConveyor
                 ? conveyorMusicClip
@@ -98,24 +114,115 @@ namespace DuckSoup.Features.Conveyor
             if (gameplayMusicSource != null && music != null)
                 gameplayMusicSource.clip = music;
 
-            if (classicBackgroundSprite == null ||
-                conveyorBackgroundSprite == null)
-            {
-                return;
-            }
-
+            // El fondo general se configura aparte de los manteles.
             Sprite background = useConveyor
                 ? conveyorBackgroundSprite
                 : classicBackgroundSprite;
 
-            if (backgroundRenderer != null)
-                backgroundRenderer.sprite = background;
+            if (background != null)
+            {
+                if (backgroundRenderer != null &&
+                    !IsPartOfTablecloth(backgroundRenderer.transform))
+                {
+                    backgroundRenderer.sprite = background;
+                }
 
-            if (backgroundImage != null)
-                backgroundImage.sprite = background;
+                if (backgroundImage != null &&
+                    !IsPartOfTablecloth(backgroundImage.transform))
+                {
+                    backgroundImage.sprite = background;
+                }
+            }
         }
 
-        public void UpdateSpeedFromRemainingTime(float remainingSeconds)
+        private bool IsPartOfTablecloth(Transform target)
+        {
+            return
+                (classicTablecloth != null &&
+                 target.IsChildOf(classicTablecloth.transform)) ||
+                (conveyorTablecloth != null &&
+                 target.IsChildOf(conveyorTablecloth.transform));
+        }
+
+        private void ApplyTablecloths()
+        {
+            if (classicTablecloth == null &&
+                conveyorTablecloth == null)
+            {
+                return;
+            }
+
+            if (classicTablecloth == null ||
+                conveyorTablecloth == null)
+            {
+                Debug.LogWarning(
+                    "[Conveyor] Asigna Classic Tablecloth " +
+                    "y Conveyor Tablecloth.",
+                    this);
+
+                return;
+            }
+
+            if (classicTablecloth == conveyorTablecloth ||
+                classicTablecloth.transform.IsChildOf(
+                    conveyorTablecloth.transform) ||
+                conveyorTablecloth.transform.IsChildOf(
+                    classicTablecloth.transform))
+            {
+                Debug.LogError(
+                    "[Conveyor] Los manteles deben ser dos objetos " +
+                    "separados: uno no puede estar dentro del otro.",
+                    this);
+
+                return;
+            }
+
+            if (transform.IsChildOf(classicTablecloth.transform) ||
+                transform.IsChildOf(conveyorTablecloth.transform))
+            {
+                Debug.LogError(
+                    "[Conveyor] Coloca ConveyorBeltTable fuera " +
+                    "de los dos manteles, en TokensRoot.",
+                    this);
+
+                return;
+            }
+
+            SetTableclothVisible(
+                classicTablecloth,
+                !useConveyor);
+
+            SetTableclothVisible(
+                conveyorTablecloth,
+                useConveyor);
+        }
+
+        private static void SetTableclothVisible(
+            GameObject target,
+            bool visible)
+        {
+            target.SetActive(visible);
+
+            if (visible)
+            {
+                Image image = target.GetComponent<Image>();
+
+                if (image != null)
+                {
+                    image.enabled = true;
+                    image.raycastTarget = false;
+                }
+            }
+        }
+
+        private void OnEnable()
+        {
+            if (configured)
+                ApplyTablecloths();
+        }
+
+        public void UpdateSpeedFromRemainingTime(
+            float remainingSeconds)
         {
             if (!useConveyor)
             {
@@ -124,21 +231,19 @@ namespace DuckSoup.Features.Conveyor
             }
 
             if (remainingSeconds <= 10f)
-            {
                 speedMultiplier = 1.65f;
-            }
             else if (remainingSeconds <= 30f)
-            {
                 speedMultiplier = 1.5f;
-            }
             else
-            {
                 speedMultiplier = 1f;
-            }
         }
 
         private void Start()
         {
+            // Aplicar de nuevo tras los Awake de la escena.
+            if (configured)
+                ApplyTablecloths();
+
             if (useConveyor)
                 Build();
         }
@@ -161,7 +266,6 @@ namespace DuckSoup.Features.Conveyor
             }
 
             Canvas.ForceUpdateCanvases();
-
             tokenSize = grid.cellSize;
 
             if (tokenSize.x <= 0f || tokenSize.y <= 0f)
@@ -173,14 +277,17 @@ namespace DuckSoup.Features.Conveyor
                 return;
             }
 
+            // Recoger las fichas antes de crear las cintas.
             var originalSlots = new List<RectTransform>();
 
             foreach (Transform child in root)
             {
                 if (child.GetComponent<SinglePlayerTokenView>() != null ||
                     child.GetComponent<TwoPlayerTokenView>() != null ||
-                    child.GetComponentInChildren<SinglePlayerTokenView>(true) != null ||
-                    child.GetComponentInChildren<TwoPlayerTokenView>(true) != null)
+                    child.GetComponentInChildren<SinglePlayerTokenView>(
+                        true) != null ||
+                    child.GetComponentInChildren<TwoPlayerTokenView>(
+                        true) != null)
                 {
                     originalSlots.Add((RectTransform)child);
                 }
@@ -204,12 +311,14 @@ namespace DuckSoup.Features.Conveyor
                 ResolveMarkerPosition(lowerBeltAnchor, false).y;
 
             float minLaneDistance =
-                tokenSize.y * maximumTokenVisualScale + horizontalGap;
+                tokenSize.y * maximumTokenVisualScale +
+                horizontalGap;
 
             if (Mathf.Abs(upperY - lowerY) < minLaneDistance)
             {
                 lowerY = upperY +
-                    (lowerY >= upperY ? 1f : -1f) * minLaneDistance;
+                    (lowerY >= upperY ? 1f : -1f) *
+                    minLaneDistance;
 
                 Debug.LogWarning(
                     "[Conveyor] Los Empty estaban demasiado cerca. " +
@@ -232,7 +341,10 @@ namespace DuckSoup.Features.Conveyor
             for (int i = 0; i < originalSlots.Count; i++)
             {
                 RectTransform original = originalSlots[i];
-                Lane lane = i % 2 == 0 ? upper : lower;
+
+                Lane lane = i % 2 == 0
+                    ? upper
+                    : lower;
 
                 SinglePlayerTokenView direct1P =
                     original.GetComponent<SinglePlayerTokenView>();
@@ -250,9 +362,10 @@ namespace DuckSoup.Features.Conveyor
                         typeof(RectTransform));
 
                     slot = wrapper.GetComponent<RectTransform>();
-                    slot.SetParent(lane.Window, false);
 
+                    slot.SetParent(lane.Window, false);
                     original.SetParent(slot, false);
+
                     tokenRect = original;
                 }
                 else
@@ -261,10 +374,12 @@ namespace DuckSoup.Features.Conveyor
                     slot.SetParent(lane.Window, false);
 
                     SinglePlayerTokenView child1P =
-                        slot.GetComponentInChildren<SinglePlayerTokenView>(true);
+                        slot.GetComponentInChildren<SinglePlayerTokenView>(
+                            true);
 
                     TwoPlayerTokenView child2P =
-                        slot.GetComponentInChildren<TwoPlayerTokenView>(true);
+                        slot.GetComponentInChildren<TwoPlayerTokenView>(
+                            true);
 
                     tokenRect = child1P != null
                         ? child1P.GetComponent<RectTransform>()
@@ -279,6 +394,7 @@ namespace DuckSoup.Features.Conveyor
                 slot.anchorMin = new Vector2(0.5f, 0.5f);
                 slot.anchorMax = new Vector2(0.5f, 0.5f);
                 slot.pivot = new Vector2(0.5f, 0.5f);
+
                 slot.sizeDelta = tokenSize;
                 slot.localScale = Vector3.one;
                 slot.localRotation = Quaternion.identity;
@@ -320,9 +436,11 @@ namespace DuckSoup.Features.Conveyor
                 typeof(Image),
                 typeof(RectMask2D));
 
-            RectTransform window = go.GetComponent<RectTransform>();
+            RectTransform window =
+                go.GetComponent<RectTransform>();
 
             window.SetParent(root, false);
+
             window.anchorMin = new Vector2(0.5f, 0.5f);
             window.anchorMax = new Vector2(0.5f, 0.5f);
             window.pivot = new Vector2(0.5f, 0.5f);
@@ -330,7 +448,8 @@ namespace DuckSoup.Features.Conveyor
             float width = root.rect.width;
 
             if (marker != null &&
-                marker.rect.width >= tokenSize.x * 2f + horizontalGap)
+                marker.rect.width >=
+                tokenSize.x * 2f + horizontalGap)
             {
                 width = marker.rect.width;
             }
@@ -373,7 +492,9 @@ namespace DuckSoup.Features.Conveyor
             return new Vector2(
                 0f,
                 root.rect.height *
-                (isUpper ? laneVerticalOffset : -laneVerticalOffset));
+                (isUpper
+                    ? laneVerticalOffset
+                    : -laneVerticalOffset));
         }
 
         private void ArrangeLane(Lane lane)
@@ -386,11 +507,14 @@ namespace DuckSoup.Features.Conveyor
             float width = lane.Window.rect.width;
 
             float step = Mathf.Max(
-                tokenSize.x * maximumTokenVisualScale + horizontalGap,
+                tokenSize.x * maximumTokenVisualScale +
+                horizontalGap,
                 (width + tokenSize.x) / count);
 
             lane.Edge =
-                width * 0.5f + tokenSize.x * 0.5f + horizontalGap;
+                width * 0.5f +
+                tokenSize.x * 0.5f +
+                horizontalGap;
 
             lane.TrackLength = Mathf.Max(
                 count * step,
@@ -416,12 +540,15 @@ namespace DuckSoup.Features.Conveyor
             token.anchorMin = Vector2.zero;
             token.anchorMax = Vector2.one;
             token.pivot = new Vector2(0.5f, 0.5f);
+
             token.offsetMin = Vector2.zero;
             token.offsetMax = Vector2.zero;
+
             token.localScale = Vector3.one;
             token.localRotation = Quaternion.identity;
         }
 
+        // Compatibilidad con el guard antiguo.
         public void SetFrozen(int slotIndex, bool frozen)
         {
         }
@@ -464,7 +591,10 @@ namespace DuckSoup.Features.Conveyor
                 Vector2 position = slot.anchoredPosition;
 
                 position.x +=
-                    lane.Direction * speed * speedMultiplier * delta;
+                    lane.Direction *
+                    speed *
+                    speedMultiplier *
+                    delta;
 
                 if (lane.Direction > 0)
                 {
@@ -511,6 +641,7 @@ namespace DuckSoup.Features.Conveyor
                 {
                     token.anchorMin = Vector2.zero;
                     token.anchorMax = Vector2.one;
+
                     token.offsetMin = Vector2.zero;
                     token.offsetMax = Vector2.zero;
                 }

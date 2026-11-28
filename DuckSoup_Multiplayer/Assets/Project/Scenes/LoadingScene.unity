@@ -157,8 +157,8 @@ MonoBehaviour:
   loadingBar: {fileID: 1564829650}
   percentageText: {fileID: 0}
   loadingText: {fileID: 0}
-  minimumLoadingSeconds: 7
-  completedDelay: 3
+  minimumLoadingSeconds: 5
+  completedDelay: 2.5
 --- !u!4 &246965100
 Transform:
   m_ObjectHideFlags: 0
